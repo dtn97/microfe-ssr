@@ -18,8 +18,10 @@ and the two sides split differently on purpose
   `splitting: true` — code shared between modules (app-b's `Panel`, the
   runtime shims) is emitted once into `chunks/`, and a `React.lazy(() =>
   import(...))` inside a module becomes its own **on-demand chunk**.
-- **Server: one bundle per app.** `src/server.js` exports every module as a
-  named export and builds without splitting into a single file. SSR gains
+- **Server: one bundle per app.** `src/server.ts` exports every module as a
+  named export — by convention the moduleId's last segment (`app-b/b1` →
+  `export { default as b1 }`), which the build validates against the bundle's
+  actual exports — and builds without splitting into a single file. SSR gains
   nothing from splitting (Node loads from disk), and one file keeps
   hot-loading trivial; dynamic imports are inlined.
 
@@ -29,17 +31,21 @@ and the two sides split differently on purpose
 | `dist/client/<module>.client.js` | Browser | ES-module entry, a few KB: imports the page from the shared chunk, registers with the SDK |
 | `dist/client/chunks/chunk-*.js` | Browser | Code shared between the app's client entries (content-hashed filename) |
 | `dist/client/chunks/SalesChart-*.js` | Browser | An on-demand chunk, private to module b1 — fetched only when B1 renders it |
-| `dist/manifest.json` | Read by host | `{ name, version: <content-hash over ALL artifacts>, server: 'server/index.js', modules: { b1: { client }, … } }` |
+| `dist/manifest.json` | Read by host | `{ name, version: <content-hash over ALL artifacts>, server: 'server/index.js', modules: [{ moduleId, client, serverExport, uses? }, …] }` |
 
 The manifest is the contract: the host never hardcodes bundle paths, module
-lists, or versions — it discovers them here, per request. Identifiers are
-two-level: `getMicroAppComponent('app-b/b1')` = app `app-b`, module `b1`.
+lists, or versions — it discovers them here, per request. `moduleId` is
+globally unique (by convention `<app>/<module>`, e.g. `app-b/b1`) and is the
+one identifier a module is loaded by everywhere — route config, SDK
+registration, lazy loading; the host treats it as an opaque key and never
+takes it apart. `serverExport` tells the host which named export of the
+server bundle backs the module.
 
 ## Server side: loading the SSR chunk and rendering
 
 When a request for `/` arrives ([host/src/server.tsx](../host/src/server.tsx)),
 before rendering anything the handler calls `refreshMicroApps()`
-([host/src/registry.js](../host/src/registry.js)), which for each app does:
+([host/src/registry.ts](../host/src/registry.ts)), which for each app does:
 
 ```js
 const manifest = JSON.parse(await fs.readFile(dir + '/manifest.json'))       // 1
@@ -68,13 +74,15 @@ with. That's what makes single-tree composition possible.
 ### The `getMicroAppComponent` indirection
 
 Each named export of the app's server bundle is just a React component. The
-registry plugs them into the provider:
+registry maps every manifest module to its export (`components[moduleId] =
+serverExports[serverExport]`) and plugs the result into the provider:
 
 ```js
 setMicroAppProvider({
-  get: (id) => {           // id = "<app>/<module>" → named export
-    const [app, moduleName] = id.split('/')
-    return loaded.get(app)?.serverExports[moduleName]
+  get: (id) => {           // moduleIds are globally unique — first app wins
+    for (const app of loaded.values()) {
+      if (id in app.components) return app.components[id]
+    }
   },
   load: () => Promise.resolve(),   // SSR never lazy-loads; refresh ran already
 })
@@ -82,7 +90,7 @@ setMicroAppProvider({
 
 Meanwhile, at module load time, [host/src/app/routes.tsx](../host/src/app/routes.tsx)
 called `getMicroAppComponent('app-a/main')`, which returned a **stable wrapper
-component** ([host/src/app/runtime.js](../host/src/app/runtime.js)). The
+component** ([host/src/app/runtime.ts](../host/src/app/runtime.ts)). The
 wrapper doesn't hold the micro app's component — it asks the provider *at
 render time*:
 
@@ -147,7 +155,7 @@ The browser paints the SSR HTML before executing any JS — that's the hybrid
 rendering payoff. Then scripts execute in document order:
 
 **1. The SDK** ([host/src/client.tsx](../host/src/client.tsx)) sets up the
-registry (`Map` of name → component), plugs in the client provider, exposes
+registry (`Map` of moduleId → component), plugs in the client provider, exposes
 the shared runtime on `window.__MICROFE__`, and calls `boot()`. Boot parses
 the bootstrap JSON and then *waits*: `whenRegistered('app-a/main')` returns a
 promise that only resolves when someone registers that module.

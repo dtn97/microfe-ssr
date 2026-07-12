@@ -4,7 +4,7 @@ A minimal proof of concept for **SSR + hydration + SPA routing across independen
 
 ## What it demonstrates
 
-1. **Independent bundling, multi-entry** — `host`, `app-a`, and `app-b` each build on their own (esbuild). A micro app can expose **several entry modules** (app-b exposes `b1` and `b2`):
+1. **Independent bundling, multi-entry** — the host and each micro app build on their own, through the shared `microfe-build` CLI (`@microfe/build`, esbuild inside). A micro app declares its exposed modules in `microfe.config.js` — an array of `{ moduleId, entry }`, where `moduleId` is the globally unique id the module is loaded by (app-b exposes `app-b/b1` and `app-b/b2`). Each build produces:
    - `dist/server/index.js` — the app's **single server bundle** (no splitting; SSR gains nothing from it), exporting each module as a named export (`src/server.ts`)
    - `dist/client/<module>.client.js` — tiny browser ES module per exposed module, built together with code splitting: shared code lands once in `chunks/`, and a module's own `React.lazy` imports become **on-demand chunks** (B1's `SalesChart` is fetched only when the user clicks "Load sales chart")
 2. **Route-based composition** — the host owns the route table (`/` → app-a's `main`, `/b1` and `/b2` → app-b's `b1`/`b2` modules) and the page chrome (header with nav, footer). On each request it renders one React tree — `<App>` = header + the matched micro app's component + footer — with `renderToString` inside a `StaticRouter`; micro apps only ever render page content. Content is visible before any JS runs.
@@ -13,7 +13,7 @@ A minimal proof of concept for **SSR + hydration + SPA routing across independen
 4. **SPA navigation between micro apps (CSR)** — the home page's buttons (and the header nav) use React Router. On a location change, `getMicroAppComponent`'s client provider **lazy-loads that module's ES-module entry** and swaps it in — no full page reload (the page shows `Server-rendered at: never`). Navigating B1 → B2 fetches only `b2.client.js`; the shared chunk is already cached. A direct request to `/b1` is instead SSR'd by the host, so every route works both ways.
 5. **Shared runtime via SDK** — micro app client bundles alias `react`, `react/jsx-runtime`, and `react-router-dom` to the SDK's shared copies (see `toolings/build/shims/`), so React + Router ship once (in the ~475 KB SDK) and all apps share one router context.
 6. **Nested micro apps** — a micro app can embed another micro app the same way the host embeds pages: B2 renders app-c's widget via `getMicroAppComponent('app-c/main')`, imported from the host-provided `@microfe/sdk` (aliased to shims per environment, like React). The embedding module declares its dependency in `microfe.config.js` (the `uses` field of the `app-b/b2` module), which lands in the manifest so the host preloads app-c's client entry before hydrating `/b2` — the nested SSR content hydrates without mismatch. On client-side navigation the dependency simply lazy-loads in sequence.
-7. **Dynamic updates, no host redeploy** — each micro app build publishes a `dist/manifest.json` whose `version` is a content hash of its artifacts. The host re-reads manifests per request and, when the version changes, hot-loads the new server bundle via `import(url + '?v=' + version)` (the ESM cache is keyed by URL). Client script URLs carry the same `?v=` for cache busting. Deploying a micro app is just `rush build --to @microfe/app-b` (or `rushx build` in its folder) — the next request serves the new version.
+7. **Dynamic updates, no host redeploy** — each micro app build publishes a `dist/manifest.json`: a `version` (content hash of all artifacts) plus one entry per module — `{ moduleId, client, serverExport, uses? }`, where `client` is the browser entry path and `serverExport` the module's named export in the server bundle. The host re-reads manifests per request and, when the version changes, hot-loads the new server bundle via `import(url + '?v=' + version)` (the ESM cache is keyed by URL). Client script URLs carry the same `?v=` for cache busting. Deploying a micro app is just `rush build --to @microfe/app-b` (or `rushx build` in its folder) — the next request serves the new version.
 
 ## Layout
 
@@ -27,19 +27,19 @@ host/
   src/client.tsx       # runtime SDK: shared React/Router on window.__MICROFE__,
                        #   client provider (lazy bundle loading), hydrate <App/>
   build.mjs            # builds the SDK bundle and the host server bundle
-apps/app-a/            # exposes module "main" (home page /)
+apps/app-a/            # exposes module "app-a/main" (home page /)
   microfe.config.js              # app name + exposed modules (@microfe/build)
   src/pages/Home.tsx
   src/server.ts                  # single SSR bundle: named export per module
   src/entries/main.client.ts
-apps/app-b/            # multi-entry: exposes modules "b1" (/b1) and "b2" (/b2)
+apps/app-b/            # multi-entry: exposes "app-b/b1" (/b1) and "app-b/b2" (/b2)
   microfe.config.js              # declares b1, b2 + b2's dependency on app-c
   src/pages/B1.tsx, B2.tsx
   src/shared/Panel.tsx           # shared by both → emitted once into chunks/
   src/components/SalesChart.tsx  # React.lazy inside B1 → own on-demand chunk
   src/server.ts                  # single SSR bundle: named export per module
   src/entries/b1.client.ts, b2.client.ts
-apps/app-c/            # nested micro app: exposes "main", embedded by B2
+apps/app-c/            # nested micro app: exposes "app-c/main", embedded by B2
   src/pages/Widget.tsx
 toolings/build/        # @microfe/build: `microfe-build build|dev` CLI —
                        #   esbuild config, SDK shims, manifest publishing
@@ -81,7 +81,7 @@ Try a live micro app deploy while the host is running: edit `apps/app-b/src/page
 One command runs everything with hot reload:
 
 ```sh
-pnpm dev        # build once, then watch host + both apps, serve on :3000
+pnpm dev        # build once, then watch host + all micro apps, serve on :3000
 ```
 
 Repo-wide checks (shared toolkits live in `toolings/`):

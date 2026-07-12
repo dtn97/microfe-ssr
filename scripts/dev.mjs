@@ -2,7 +2,7 @@
  * One-command local dev: `pnpm dev`
  *
  *  - initial build of everything
- *  - watch-rebuild host (SDK + server bundle) and both micro apps on save
+ *  - watch-rebuild host (SDK + server bundle) and all micro apps on save
  *  - run the host under node --watch-path so a rebuilt server bundle
  *    restarts it (scoped to host/dist/server, so micro app deploys hot-load
  *    WITHOUT a restart, same as production)
