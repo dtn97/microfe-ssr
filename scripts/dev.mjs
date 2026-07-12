@@ -1,5 +1,5 @@
 /**
- * One-command local dev: `npm run dev`
+ * One-command local dev: `pnpm dev`
  *
  *  - initial build of everything
  *  - watch-rebuild host (SDK + server bundle) and both micro apps on save
@@ -12,14 +12,18 @@
 import { spawn, spawnSync } from 'node:child_process'
 
 console.log('[dev] initial build…')
-const build = spawnSync('npm', ['run', 'build'], { stdio: 'inherit' })
+const build = spawnSync(
+  'node',
+  ['common/scripts/install-run-rush.js', 'build'],
+  { stdio: 'inherit' },
+)
 if (build.status !== 0) process.exit(build.status ?? 1)
 
 const tasks = [
-  { name: 'host ', cmd: 'npm', args: ['run', 'dev', '-w', 'host'] },
-  { name: 'app-a', cmd: 'npm', args: ['run', 'dev', '-w', 'app-a'] },
-  { name: 'app-b', cmd: 'npm', args: ['run', 'dev', '-w', 'app-b'] },
-  { name: 'app-c', cmd: 'npm', args: ['run', 'dev', '-w', 'app-c'] },
+  { name: 'host ', cmd: 'node', args: ['build.mjs', '--watch'], cwd: 'host' },
+  { name: 'app-a', cmd: 'node', args: ['build.mjs', '--watch'], cwd: 'apps/app-a' },
+  { name: 'app-b', cmd: 'node', args: ['build.mjs', '--watch'], cwd: 'apps/app-b' },
+  { name: 'app-c', cmd: 'node', args: ['build.mjs', '--watch'], cwd: 'apps/app-c' },
   {
     name: 'serve',
     cmd: 'node',
@@ -28,8 +32,8 @@ const tasks = [
   },
 ]
 
-const children = tasks.map(({ name, cmd, args, env }) => {
-  const child = spawn(cmd, args, { env: { ...process.env, ...env } })
+const children = tasks.map(({ name, cmd, args, cwd, env }) => {
+  const child = spawn(cmd, args, { cwd, env: { ...process.env, ...env } })
   const prefix = (data) =>
     String(data)
       .split('\n')

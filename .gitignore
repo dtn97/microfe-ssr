@@ -1,3 +1,14 @@
 node_modules/
 dist/
 .DS_Store
+
+# Rush
+common/temp/
+common/autoinstallers/*/.npmrc
+**/.rush/temp/
+
+# pnpm
+.pnpm-store/
+
+# Logs
+*.log

@@ -1,5 +1,5 @@
 {
-  "name": "app-c",
+  "name": "@microfe/app-c",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -8,11 +8,11 @@
     "dev": "node build.mjs --watch"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.30.4"
+    "react": "catalog:react18",
+    "react-dom": "catalog:react18",
+    "react-router-dom": "catalog:react18"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "esbuild": "catalog:build"
   }
 }

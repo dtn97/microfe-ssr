@@ -1,14 +1,16 @@
 {
-  "name": "microfe-ssr",
+  "name": "microfe",
   "private": true,
-  "type": "module",
-  "workspaces": [
-    "host",
-    "apps/*"
-  ],
+  "packageManager": "pnpm@11.5.2",
+  "engines": {
+    "node": ">=20.0.0 <27.0.0"
+  },
   "scripts": {
-    "build": "npm run build --workspaces",
+    "build": "node common/scripts/install-run-rush.js build",
     "start": "node host/dist/server/server.js",
     "dev": "node scripts/dev.mjs"
-  }
+  },
+  "pnpm": {
+		"#": "Managed in common/config/rush/pnpm-config.json"
+	}
 }

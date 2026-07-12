@@ -13,7 +13,7 @@ A minimal proof of concept for **SSR + hydration + SPA routing across independen
 4. **SPA navigation between micro apps (CSR)** — the home page's buttons (and the header nav) use React Router. On a location change, `getMicroAppComponent`'s client provider **lazy-loads that module's ES-module entry** and swaps it in — no full page reload (the page shows `Server-rendered at: never`). Navigating B1 → B2 fetches only `b2.client.js`; the shared chunk is already cached. A direct request to `/b1` is instead SSR'd by the host, so every route works both ways.
 5. **Shared runtime via SDK** — micro app client bundles alias `react`, `react/jsx-runtime`, and `react-router-dom` to the SDK's shared copies (see `apps/*/shims/`), so React + Router ship once (in the ~475 KB SDK) and all apps share one router context.
 6. **Nested micro apps** — a micro app can embed another micro app the same way the host embeds pages: B2 renders app-c's widget via `getMicroAppComponent('app-c/main')`, imported from the host-provided `@microfe/sdk` (aliased to shims per environment, like React). The embedding module declares its dependency in `package.json` (`microfe.modules.b2.uses`), which lands in the manifest so the host preloads app-c's client entry before hydrating `/b2` — the nested SSR content hydrates without mismatch. On client-side navigation the dependency simply lazy-loads in sequence.
-7. **Dynamic updates, no host redeploy** — each micro app build publishes a `dist/manifest.json` whose `version` is a content hash of its artifacts. The host re-reads manifests per request and, when the version changes, hot-loads the new server bundle via `import(url + '?v=' + version)` (the ESM cache is keyed by URL). Client script URLs carry the same `?v=` for cache busting. Deploying a micro app is just `npm run build -w app-b` — the next request serves the new version.
+7. **Dynamic updates, no host redeploy** — each micro app build publishes a `dist/manifest.json` whose `version` is a content hash of its artifacts. The host re-reads manifests per request and, when the version changes, hot-loads the new server bundle via `import(url + '?v=' + version)` (the ESM cache is keyed by URL). Client script URLs carry the same `?v=` for cache busting. Deploying a micro app is just `rush build --to @microfe/app-b` (or `rushx build` in its folder) — the next request serves the new version.
 
 ## Layout
 
@@ -39,7 +39,7 @@ apps/app-b/            # multi-entry: exposes modules "b1" (/b1) and "b2" (/b2)
   src/entries/b1.client.js, b2.client.js
 apps/app-c/            # nested micro app: exposes "main", embedded by B2
   src/pages/Widget.jsx
-scripts/dev.mjs        # npm run dev: all watchers + auto-restarting server
+scripts/dev.mjs        # pnpm dev: all watchers + auto-restarting server
 ```
 
 The host reads like a normal React app — micro app modules are just components:
@@ -62,20 +62,22 @@ browser it reads the SDK registry and lazy-loads the app's bundle on first use.
 
 ## Run it
 
+This repo is managed with [Rush](https://rushjs.io) + pnpm (`npm install -g @microsoft/rush`, or use the checked-in `common/scripts/install-run-rush.js` wrapper).
+
 ```sh
-npm install
-npm run build     # builds SDK + both micro apps (each via its own build.mjs)
-npm start         # http://localhost:3000
+rush update       # install dependencies (pnpm, managed by Rush)
+rush build        # builds SDK + both micro apps (each via its own build.mjs)
+pnpm start        # http://localhost:3000
 ```
 
-Try a live micro app deploy while the host is running: edit `apps/app-b/src/pages/B1.jsx`, run `npm run build -w app-b`, refresh the page. The host logs `hot-loaded app-b@<new-version>` and serves the new SSR output — no restart.
+Try a live micro app deploy while the host is running: edit `apps/app-b/src/pages/B1.jsx`, run `rush build --to @microfe/app-b`, refresh the page. The host logs `hot-loaded app-b@<new-version>` and serves the new SSR output — no restart.
 
 ## Development workflow
 
 One command runs everything with hot reload:
 
 ```sh
-npm run dev     # build once, then watch host + both apps, serve on :3000
+pnpm dev        # build once, then watch host + both apps, serve on :3000
 ```
 
 Save any file and the browser reloads itself with the change:
@@ -93,8 +95,8 @@ All dev plumbing (SSE endpoint, reload script in the page) is gated behind
 not component-level HMR — for a shell + SSR architecture that's usually what
 you want anyway, since a changed server bundle must re-render the page.
 
-To watch a single micro app against a plain host, run `npm run build &&
-npm start` plus `npm run dev -w app-a` and refresh manually.
+To watch a single micro app against a plain host, run `rush build &&
+pnpm start` plus `rushx dev` inside `apps/app-a` and refresh manually.
 
 In a multi-repo setup the same flow holds: the app team runs only their app in
 watch mode, while the host's registry resolves every *other* app from the

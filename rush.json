@@ -1,0 +1,70 @@
+/**
+ * This is the main configuration file for Rush.
+ * For full documentation, please see https://rushjs.io
+ */
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/rush/v5/rush.schema.json",
+
+  /**
+   * (Required) This specifies the version of the Rush engine to be used in this repo.
+   * Rush's "version selector" feature ensures that the globally installed tool will
+   * behave like this release, regardless of which version is installed globally.
+   */
+  "rushVersion": "5.177.2",
+
+  /**
+   * The package manager installed and managed by Rush for this repo.
+   */
+  "pnpmVersion": "11.5.2",
+
+  "nodeSupportedVersionRange": ">=20.0.0 <27.0.0",
+
+  "projectFolderMaxDepth": 3,
+
+  "gitPolicy": {},
+
+  "repository": {
+    // "url": "",
+    "defaultBranch": "main"
+  },
+
+  /**
+   * Event hooks are customized script actions that Rush executes when specific events occur
+   */
+  "eventHooks": {
+    "preRushInstall": [],
+    "postRushInstall": [],
+    "preRushBuild": [],
+    "postRushBuild": [],
+    "preRushx": [],
+    "postRushx": []
+  },
+
+  "variants": [],
+
+  /**
+   * (Required) This is the inventory of projects to be managed by Rush.
+   */
+  "projects": [
+    {
+      "packageName": "@microfe/host",
+      "projectFolder": "host",
+      "tags": ["app"]
+    },
+    {
+      "packageName": "@microfe/app-a",
+      "projectFolder": "apps/app-a",
+      "tags": ["microfe"]
+    },
+    {
+      "packageName": "@microfe/app-b",
+      "projectFolder": "apps/app-b",
+      "tags": ["microfe"]
+    },
+    {
+      "packageName": "@microfe/app-c",
+      "projectFolder": "apps/app-c",
+      "tags": ["microfe"]
+    }
+  ]
+}
