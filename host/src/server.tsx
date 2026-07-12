@@ -1,25 +1,25 @@
 /**
  * Host orchestrator — Express bootstrap + SSR.
  *
- * The page is one React tree owned by the host (App.jsx: header + routed
+ * The page is one React tree owned by the host (App.tsx: header + routed
  * micro app content + footer). Micro apps appear in it as regular components
- * via getMicroAppComponent(); registry.js hot-loads their server bundles.
+ * via getMicroAppComponent(); registry.ts hot-loads their server bundles.
  */
-import express from 'express'
 import { watch } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import express from 'express'
 import { renderToString } from 'react-dom/server'
 import { StaticRouter } from 'react-router-dom/server.js'
-import App from './app/App.jsx'
-import { routes } from './app/routes.jsx'
-import { appNames, artifactDirs, refreshMicroApps } from './registry.js'
+import App from './app/App'
+import { routes } from './app/routes'
+import { appNames, artifactDirs, type LoadedMicroApp, refreshMicroApps } from './registry'
 
 // import.meta.url is the *bundled* location: host/dist/server/server.js
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.resolve(__dirname, '../../..')
 
-const escapeJson = (obj) => JSON.stringify(obj).replace(/</g, '\\u003c')
+const escapeJson = (obj: unknown) => JSON.stringify(obj).replace(/</g, '\\u003c')
 
 // --- Dev-only live reload ---------------------------------------------------
 // The browser holds an SSE connection to /dev/reload.
@@ -29,16 +29,20 @@ const escapeJson = (obj) => JSON.stringify(obj).replace(/</g, '\\u003c')
 //    connection drops and the client reloads once it reconnects
 const isDev = process.env.MICROFE_DEV === '1'
 
-function setupLiveReload(server) {
-  const clients = new Set()
-  server.get('/dev/reload', (req, res) => {
-    res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' })
+function setupLiveReload(app: express.Express) {
+  const clients = new Set<express.Response>()
+  app.get('/dev/reload', (req, res) => {
+    res.set({
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    })
     res.flushHeaders()
     clients.add(res)
     req.on('close', () => clients.delete(res))
   })
 
-  let timer = null
+  let timer: NodeJS.Timeout | undefined
   const broadcast = () => {
     clearTimeout(timer) // debounce: one rebuild touches several files
     timer = setTimeout(() => {
@@ -48,9 +52,9 @@ function setupLiveReload(server) {
   }
 
   for (const dir of Object.values(artifactDirs)) {
-    watch(dir, (event, filename) => filename === 'manifest.json' && broadcast())
+    watch(dir, (_event, filename) => filename === 'manifest.json' && broadcast())
   }
-  watch(path.join(rootDir, 'host/dist/public'), (event, filename) => {
+  watch(path.join(rootDir, 'host/dist/public'), (_event, filename) => {
     if (filename === 'microfe-sdk.js') broadcast()
   })
 }
@@ -71,7 +75,7 @@ const devReloadScript = isDev
   </script>`
   : ''
 
-function page({ html, bootstrap }) {
+function page({ html, bootstrap }: { html: string; bootstrap: MicrofeBootstrap }) {
   // The route's module plus everything it (transitively) embeds: their
   // entries must load before hydration so the first render matches the SSR.
   const preloadScripts = bootstrap.preload
@@ -121,29 +125,34 @@ for (const route of routes) {
   server.get(route.link, async (req, res, next) => {
     try {
       const entries = await refreshMicroApps()
+      const appOf = (name: string): LoadedMicroApp => {
+        const entry = entries.get(name)
+        if (!entry) throw new Error(`unknown micro app "${name}"`)
+        return entry
+      }
 
       // The route's module + transitive `uses` dependencies (nested apps).
-      const preload = []
+      const preload: string[] = []
       const queue = [route.moduleId]
       while (queue.length) {
         const id = queue.shift()
-        if (preload.includes(id)) continue
+        if (!id || preload.includes(id)) continue
         preload.push(id)
         const [app, moduleName] = id.split('/')
-        queue.push(...(entries.get(app)?.uses[moduleName] ?? []))
+        queue.push(...(appOf(app).uses[moduleName] ?? []))
       }
 
-      const bootstrap = {
+      const bootstrap: MicrofeBootstrap = {
         initialPath: req.path,
         initialModule: route.moduleId,
         preload,
         pageProps: { renderedAt: new Date().toLocaleTimeString() },
-        versions: appNames.map((n) => `${n}@${entries.get(n).version}`),
+        versions: appNames.map((n) => `${n}@${appOf(n).version}`),
         // moduleId -> client entry URL; lets the SDK lazy-load any exposed
         // module on navigation (shared chunks load via the entry's imports).
         modules: Object.fromEntries(
           appNames.flatMap((n) =>
-            Object.entries(entries.get(n).clientUrls).map(([m, url]) => [`${n}/${m}`, url]),
+            Object.entries(appOf(n).clientUrls).map(([m, url]) => [`${n}/${m}`, url]),
           ),
         ),
       }

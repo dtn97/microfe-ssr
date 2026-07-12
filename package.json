@@ -11,6 +11,6 @@
     "dev": "node scripts/dev.mjs"
   },
   "pnpm": {
-		"#": "Managed in common/config/rush/pnpm-config.json"
-	}
+    "#": "Managed in common/config/rush/pnpm-config.json"
+  }
 }

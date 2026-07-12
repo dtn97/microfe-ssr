@@ -65,6 +65,16 @@
       "packageName": "@microfe/app-c",
       "projectFolder": "apps/app-c",
       "tags": ["microfe"]
+    },
+    {
+      "packageName": "@microfe/biome",
+      "projectFolder": "toolings/biome",
+      "tags": ["tooling"]
+    },
+    {
+      "packageName": "@microfe/typescript",
+      "projectFolder": "toolings/typescript",
+      "tags": ["tooling"]
     }
   ]
 }

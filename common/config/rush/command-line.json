@@ -187,10 +187,47 @@
       "commandKind": "bulk",
       "name": "build",
       "summary": "Build all projects",
-      "description": "Runs each project's 'build' script. esbuild writes its output summary to stderr, so warnings must not fail the build.",
+      "description": "Runs each project's 'build' script. esbuild writes its output summary to stderr, so warnings must not fail the build. Tooling packages have no build step.",
       "enableParallelism": true,
       "incremental": true,
+      "ignoreMissingScript": true,
       "allowWarningsInSuccessfulBuild": true
+    },
+    {
+      "commandKind": "bulk",
+      "name": "typecheck",
+      "summary": "Type-check all projects with TypeScript",
+      "description": "Runs each project's 'typecheck' script (toolings-tsc --noEmit). Projects without one are skipped.",
+      "enableParallelism": true,
+      "ignoreMissingScript": true,
+      "ignoreDependencyOrder": true
+    },
+    {
+      "commandKind": "global",
+      "name": "lint",
+      "summary": "Lint the entire repo with Biome",
+      "description": "Runs 'biome check' across the whole monorepo.",
+      "safeForSimultaneousRushProcesses": false,
+      "autoinstallerName": "rush-biome",
+      "shellCommand": "biome check"
+    },
+    {
+      "commandKind": "global",
+      "name": "lint:fix",
+      "summary": "Lint and auto-fix the entire repo with Biome",
+      "description": "Runs 'biome check --write' across the whole monorepo, applying safe fixes.",
+      "safeForSimultaneousRushProcesses": false,
+      "autoinstallerName": "rush-biome",
+      "shellCommand": "biome check --write"
+    },
+    {
+      "commandKind": "global",
+      "name": "format",
+      "summary": "Format the entire repo with Biome",
+      "description": "Runs 'biome format --write' across the whole monorepo.",
+      "safeForSimultaneousRushProcesses": false,
+      "autoinstallerName": "rush-biome",
+      "shellCommand": "biome format --write"
     }
   ],
 

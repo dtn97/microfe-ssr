@@ -5,7 +5,7 @@ A minimal proof of concept for **SSR + hydration + SPA routing across independen
 ## What it demonstrates
 
 1. **Independent bundling, multi-entry** — `host`, `app-a`, and `app-b` each build on their own (esbuild). A micro app can expose **several entry modules** (app-b exposes `b1` and `b2`):
-   - `dist/server/index.js` — the app's **single server bundle** (no splitting; SSR gains nothing from it), exporting each module as a named export (`src/server.js`)
+   - `dist/server/index.js` — the app's **single server bundle** (no splitting; SSR gains nothing from it), exporting each module as a named export (`src/server.ts`)
    - `dist/client/<module>.client.js` — tiny browser ES module per exposed module, built together with code splitting: shared code lands once in `chunks/`, and a module's own `React.lazy` imports become **on-demand chunks** (B1's `SalesChart` is fetched only when the user clicks "Load sales chart")
 2. **Route-based composition** — the host owns the route table (`/` → app-a's `main`, `/b1` and `/b2` → app-b's `b1`/`b2` modules) and the page chrome (header with nav, footer). On each request it renders one React tree — `<App>` = header + the matched micro app's component + footer — with `renderToString` inside a `StaticRouter`; micro apps only ever render page content. Content is visible before any JS runs.
    - The whole page is one React tree owned by the host, so the header's `<Link>` nav and the micro apps share one router; header/footer never remount across navigations.
@@ -19,26 +19,26 @@ A minimal proof of concept for **SSR + hydration + SPA routing across independen
 
 ```
 host/
-  src/app/runtime.js   # getMicroAppComponent(id) + pluggable provider (isomorphic)
-  src/app/routes.jsx   # PageA/PageB = getMicroAppComponent(...); route config
-  src/app/App.jsx      # <App> = <Header/> + <Routes> (micro app pages) + <Footer/>
-  src/registry.js      # server provider: manifests, versions, hot-loading bundles
-  src/server.jsx       # Express bootstrap + renderToString(<StaticRouter><App/>)
-  src/client.jsx       # runtime SDK: shared React/Router on window.__MICROFE__,
+  src/app/runtime.ts   # getMicroAppComponent(id) + pluggable provider (isomorphic)
+  src/app/routes.tsx   # PageA/PageB = getMicroAppComponent(...); route config
+  src/app/App.tsx      # <App> = <Header/> + <Routes> (micro app pages) + <Footer/>
+  src/registry.ts      # server provider: manifests, versions, hot-loading bundles
+  src/server.tsx       # Express bootstrap + renderToString(<StaticRouter><App/>)
+  src/client.tsx       # runtime SDK: shared React/Router on window.__MICROFE__,
                        #   client provider (lazy bundle loading), hydrate <App/>
   build.mjs            # builds the SDK bundle and the host server bundle
 apps/app-a/            # exposes module "main" (home page /)
-  src/pages/Home.jsx
-  src/server.js                  # single SSR bundle: named export per module
-  src/entries/main.client.js
+  src/pages/Home.tsx
+  src/server.ts                  # single SSR bundle: named export per module
+  src/entries/main.client.ts
 apps/app-b/            # multi-entry: exposes modules "b1" (/b1) and "b2" (/b2)
-  src/pages/B1.jsx, B2.jsx
-  src/shared/Panel.jsx           # shared by both → emitted once into chunks/
-  src/components/SalesChart.jsx  # React.lazy inside B1 → own on-demand chunk
-  src/server.js                  # single SSR bundle: named export per module
-  src/entries/b1.client.js, b2.client.js
+  src/pages/B1.tsx, B2.tsx
+  src/shared/Panel.tsx           # shared by both → emitted once into chunks/
+  src/components/SalesChart.tsx  # React.lazy inside B1 → own on-demand chunk
+  src/server.ts                  # single SSR bundle: named export per module
+  src/entries/b1.client.ts, b2.client.ts
 apps/app-c/            # nested micro app: exposes "main", embedded by B2
-  src/pages/Widget.jsx
+  src/pages/Widget.tsx
 scripts/dev.mjs        # pnpm dev: all watchers + auto-restarting server
 ```
 
@@ -70,7 +70,7 @@ rush build        # builds SDK + both micro apps (each via its own build.mjs)
 pnpm start        # http://localhost:3000
 ```
 
-Try a live micro app deploy while the host is running: edit `apps/app-b/src/pages/B1.jsx`, run `rush build --to @microfe/app-b`, refresh the page. The host logs `hot-loaded app-b@<new-version>` and serves the new SSR output — no restart.
+Try a live micro app deploy while the host is running: edit `apps/app-b/src/pages/B1.tsx`, run `rush build --to @microfe/app-b`, refresh the page. The host logs `hot-loaded app-b@<new-version>` and serves the new SSR output — no restart.
 
 ## Development workflow
 
@@ -78,6 +78,14 @@ One command runs everything with hot reload:
 
 ```sh
 pnpm dev        # build once, then watch host + both apps, serve on :3000
+```
+
+Repo-wide checks (shared toolkits live in `toolings/`):
+
+```sh
+rush typecheck   # tsc --noEmit in every project (@microfe/typescript)
+rush lint        # Biome check across the repo (@microfe/biome)
+rush lint:fix    # apply safe fixes
 ```
 
 Save any file and the browser reloads itself with the change:

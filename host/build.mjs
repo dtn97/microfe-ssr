@@ -6,7 +6,7 @@ const watch = process.argv.includes('--watch')
 // micro apps reference them through window.__MICROFE__ instead of bundling
 // their own copies. Also contains the host's App shell for hydration.
 const clientConfig = {
-  entryPoints: ['src/client.jsx'],
+  entryPoints: ['src/client.tsx'],
   outfile: 'dist/public/microfe-sdk.js',
   bundle: true,
   format: 'iife',
@@ -19,7 +19,7 @@ const clientConfig = {
 // Server: bundles the host's own JSX (App shell, routes); npm deps stay
 // external and micro app server bundles are dynamic-imported at runtime.
 const serverConfig = {
-  entryPoints: ['src/server.jsx'],
+  entryPoints: ['src/server.tsx'],
   outfile: 'dist/server/server.js',
   bundle: true,
   platform: 'node',
@@ -32,10 +32,7 @@ const serverConfig = {
 if (watch) {
   // Dev mode. A rebuilt server bundle restarts the host (node --watch-path);
   // a rebuilt SDK triggers a live-reload broadcast (the host watches the file).
-  const contexts = await Promise.all([
-    esbuild.context(clientConfig),
-    esbuild.context(serverConfig),
-  ])
+  const contexts = await Promise.all([esbuild.context(clientConfig), esbuild.context(serverConfig)])
   await Promise.all(contexts.map((ctx) => ctx.watch()))
   console.log('[host] watching for changes…')
 } else {

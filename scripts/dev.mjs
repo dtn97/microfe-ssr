@@ -12,11 +12,9 @@
 import { spawn, spawnSync } from 'node:child_process'
 
 console.log('[dev] initial build…')
-const build = spawnSync(
-  'node',
-  ['common/scripts/install-run-rush.js', 'build'],
-  { stdio: 'inherit' },
-)
+const build = spawnSync('node', ['common/scripts/install-run-rush.js', 'build'], {
+  stdio: 'inherit',
+})
 if (build.status !== 0) process.exit(build.status ?? 1)
 
 const tasks = [
@@ -38,7 +36,9 @@ const children = tasks.map(({ name, cmd, args, cwd, env }) => {
     String(data)
       .split('\n')
       .filter(Boolean)
-      .forEach((line) => console.log(`[${name}] ${line}`))
+      .forEach((line) => {
+        console.log(`[${name}] ${line}`)
+      })
   child.stdout.on('data', prefix)
   child.stderr.on('data', prefix)
   return child

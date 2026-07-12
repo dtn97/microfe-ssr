@@ -8,24 +8,34 @@
  *  - Hydrates the same <App/> the server rendered.
  */
 import * as React from 'react'
-import * as ReactDOMClient from 'react-dom/client'
 import * as jsxRuntime from 'react/jsx-runtime'
+import * as ReactDOMClient from 'react-dom/client'
 import * as ReactRouterDOM from 'react-router-dom'
-import App from './app/App.jsx'
-import { getMicroAppComponent, setMicroAppProvider } from './app/runtime.js'
+import App from './app/App'
+import { getMicroAppComponent, type MicroAppComponent, setMicroAppProvider } from './app/runtime'
 
-const registry = new Map() // moduleId ("<app>/<module>") -> component
-const waiters = new Map() // moduleId -> { promise, resolve }
-let bootstrap = null // injected by the host page
+interface Waiter {
+  promise: Promise<MicroAppComponent>
+  resolve: (component: MicroAppComponent) => void
+}
 
-function whenRegistered(moduleId) {
-  if (registry.has(moduleId)) return Promise.resolve(registry.get(moduleId))
-  if (!waiters.has(moduleId)) {
-    let resolve
-    const promise = new Promise((r) => (resolve = r))
-    waiters.set(moduleId, { promise, resolve })
+const registry = new Map<string, MicroAppComponent>() // moduleId ("<app>/<module>") -> component
+const waiters = new Map<string, Waiter>()
+let bootstrap: MicrofeBootstrap | null = null // injected by the host page
+
+function whenRegistered(moduleId: string): Promise<MicroAppComponent> {
+  const registered = registry.get(moduleId)
+  if (registered) return Promise.resolve(registered)
+  let waiter = waiters.get(moduleId)
+  if (!waiter) {
+    let resolve!: (component: MicroAppComponent) => void
+    const promise = new Promise<MicroAppComponent>((r) => {
+      resolve = r
+    })
+    waiter = { promise, resolve }
+    waiters.set(moduleId, waiter)
   }
-  return waiters.get(moduleId).promise
+  return waiter.promise
 }
 
 /**
@@ -34,8 +44,9 @@ function whenRegistered(moduleId) {
  * import automatically — and chunks already loaded for a sibling module
  * (e.g. b1 → b2) are served from cache.
  */
-function ensureModule(moduleId) {
-  if (registry.has(moduleId)) return Promise.resolve(registry.get(moduleId))
+function ensureModule(moduleId: string): Promise<MicroAppComponent> {
+  const registered = registry.get(moduleId)
+  if (registered) return Promise.resolve(registered)
   const url = bootstrap?.modules[moduleId]
   const alreadyInPage = document.querySelector(`script[data-microfe-entry="${moduleId}"]`)
   if (url && !alreadyInPage) {
@@ -75,23 +86,21 @@ window.__MICROFE__ = {
 
 function boot() {
   const rootEl = document.getElementById('root')
-  if (!rootEl) return
-  bootstrap = JSON.parse(document.getElementById('microfe-bootstrap').textContent)
+  const bootstrapEl = document.getElementById('microfe-bootstrap')
+  if (!rootEl || !bootstrapEl?.textContent) return
+  const data: MicrofeBootstrap = JSON.parse(bootstrapEl.textContent)
+  bootstrap = data
   // The preload set (route module + nested apps it embeds) is already in the
   // page as <script type=module> tags; wait for ALL of them to register so
   // the first render — including nested micro apps — matches the SSR HTML.
-  Promise.all(bootstrap.preload.map(whenRegistered)).then(() => {
+  Promise.all(data.preload.map(whenRegistered)).then(() => {
     ReactDOMClient.hydrateRoot(
       rootEl,
       <ReactRouterDOM.BrowserRouter>
-        <App
-          initialPath={bootstrap.initialPath}
-          pageProps={bootstrap.pageProps}
-          versions={bootstrap.versions}
-        />
+        <App initialPath={data.initialPath} pageProps={data.pageProps} versions={data.versions} />
       </ReactRouterDOM.BrowserRouter>,
     )
-    console.log(`[microfe] hydrated "${bootstrap.initialModule}" at ${bootstrap.initialPath}`)
+    console.log(`[microfe] hydrated "${data.initialModule}" at ${data.initialPath}`)
   })
 }
 

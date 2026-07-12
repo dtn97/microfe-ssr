@@ -1,28 +1,30 @@
-import * as esbuild from 'esbuild'
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import * as esbuild from 'esbuild'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 const watch = process.argv.includes('--watch')
 const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'))
 const { name } = pkg
 
-// Multi-entry (client side): every src/entries/<module>.client.js is an
+// Multi-entry (client side): every src/entries/<module>.client.ts is an
 // exposed module. All client entries build together with `splitting`, so
 // code shared between modules is emitted once into chunks/ — and dynamic
 // import() inside a module gets its own on-demand chunk.
 const entryFiles = await fs.readdir(path.join(root, 'src/entries'))
 const entriesOf = (side) =>
-  entryFiles.filter((f) => f.endsWith(`.${side}.js`)).map((f) => path.join(root, 'src/entries', f))
+  entryFiles
+    .filter((f) => new RegExp(`\\.${side}\\.[jt]s$`).test(f))
+    .map((f) => path.join(root, 'src/entries', f))
 
 // Server side: ONE bundle per micro app (src/server.js exports each module
 // as a named export), no splitting — SSR gains nothing from it, and a single
 // file keeps hot-loading simple. Dynamic imports are inlined. React stays
 // external so the whole server process shares one React copy.
 const serverConfig = {
-  entryPoints: [path.join(root, 'src/server.js')],
+  entryPoints: [path.join(root, 'src/server.ts')],
   outfile: path.join(root, 'dist/server/index.js'),
   bundle: true,
   format: 'esm',
@@ -102,7 +104,9 @@ async function publishManifest(serverMeta, clientMeta) {
     ),
   }
   await fs.writeFile(path.join(root, 'dist/manifest.json'), JSON.stringify(manifest, null, 2))
-  console.log(`[${name}] published manifest version ${version} (modules: ${Object.keys(client).join(', ')})`)
+  console.log(
+    `[${name}] published manifest version ${version} (modules: ${Object.keys(client).join(', ')})`,
+  )
 }
 
 if (watch) {

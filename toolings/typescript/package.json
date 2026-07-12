@@ -1,0 +1,22 @@
+{
+  "name": "@microfe/typescript",
+  "version": "1.0.0",
+  "description": "Shared TypeScript toolkit: base tsconfig and a type-checking CLI for monorepo packages",
+  "private": true,
+  "bin": {
+    "toolings-tsc": "bin/toolings-tsc.js"
+  },
+  "files": [
+    "bin",
+    "tsconfig"
+  ],
+  "scripts": {
+    "lint": "toolings-lint check ."
+  },
+  "devDependencies": {
+    "@microfe/biome": "workspace:*"
+  },
+  "dependencies": {
+    "typescript": "~5.8.3"
+  }
+}

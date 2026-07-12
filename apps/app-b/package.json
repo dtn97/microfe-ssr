@@ -5,12 +5,16 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "dev": "node build.mjs --watch"
+    "dev": "node build.mjs --watch",
+    "typecheck": "toolings-tsc --noEmit",
+    "lint": "toolings-lint check src"
   },
   "microfe": {
     "modules": {
       "b2": {
-        "uses": ["app-c/main"]
+        "uses": [
+          "app-c/main"
+        ]
       }
     }
   },
@@ -20,6 +24,10 @@
     "react-router-dom": "catalog:react18"
   },
   "devDependencies": {
+    "@microfe/biome": "workspace:*",
+    "@microfe/typescript": "workspace:*",
+    "@types/react": "catalog:react18",
+    "@types/react-dom": "catalog:react18",
     "esbuild": "catalog:build"
   }
 }

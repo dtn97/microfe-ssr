@@ -35,7 +35,7 @@ two-level: `getMicroAppComponent('app-b/b1')` = app `app-b`, module `b1`.
 
 ## Server side: loading the SSR chunk and rendering
 
-When a request for `/` arrives ([host/src/server.jsx](../host/src/server.jsx)),
+When a request for `/` arrives ([host/src/server.tsx](../host/src/server.tsx)),
 before rendering anything the handler calls `refreshMicroApps()`
 ([host/src/registry.js](../host/src/registry.js)), which for each app does:
 
@@ -78,7 +78,7 @@ setMicroAppProvider({
 })
 ```
 
-Meanwhile, at module load time, [host/src/app/routes.jsx](../host/src/app/routes.jsx)
+Meanwhile, at module load time, [host/src/app/routes.tsx](../host/src/app/routes.tsx)
 called `getMicroAppComponent('app-a/main')`, which returned a **stable wrapper
 component** ([host/src/app/runtime.js](../host/src/app/runtime.js)). The
 wrapper doesn't hold the micro app's component — it asks the provider *at
@@ -144,7 +144,7 @@ The page embeds everything the client needs to take over:
 The browser paints the SSR HTML before executing any JS — that's the hybrid
 rendering payoff. Then scripts execute in document order:
 
-**1. The SDK** ([host/src/client.jsx](../host/src/client.jsx)) sets up the
+**1. The SDK** ([host/src/client.tsx](../host/src/client.tsx)) sets up the
 registry (`Map` of name → component), plugs in the client provider, exposes
 the shared runtime on `window.__MICROFE__`, and calls `boot()`. Boot parses
 the bootstrap JSON and then *waits*: `whenRegistered('app-a/main')` returns a
@@ -212,7 +212,7 @@ a module promise.
 **5. In-module lazy loading** is just plain React from here. B1 declares
 
 ```js
-const SalesChart = lazy(() => import('../components/SalesChart.jsx'))
+const SalesChart = lazy(() => import('../components/SalesChart'))
 ```
 
 and renders it inside `<Suspense>` only after a click. The client build's
@@ -260,7 +260,7 @@ uses — `getMicroAppComponent` — imported from the host-provided
 `@microfe/sdk` (a virtual package, aliased at build time like React):
 
 ```jsx
-// apps/app-b/src/pages/B2.jsx
+// apps/app-b/src/pages/B2.tsx
 import { getMicroAppComponent } from '@microfe/sdk'
 const NestedC = getMicroAppComponent('app-c/main')
 // ... <NestedC /> inside B2's JSX

@@ -12,7 +12,10 @@ export default function SalesChart() {
       </p>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 80 }}>
         {bars.map((h, i) => (
-          <div key={i} style={{ width: 28, height: `${h}%`, background: '#059669', borderRadius: 3 }} />
+          <div
+            key={i}
+            style={{ width: 28, height: `${h}%`, background: '#059669', borderRadius: 3 }}
+          />
         ))}
       </div>
     </div>

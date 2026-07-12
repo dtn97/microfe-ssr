@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@microfe/typescript react-app",
+  "_comment": "Config for React apps bundled by esbuild: adds the DOM lib and the react-jsx transform, and never emits — esbuild owns the build, tsc only type-checks.",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "noEmit": true
+  }
+}

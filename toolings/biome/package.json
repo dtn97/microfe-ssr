@@ -1,0 +1,18 @@
+{
+  "name": "@microfe/biome",
+  "version": "1.0.0",
+  "description": "Shared Biome toolkit: bundles Biome and exposes a lint/format CLI for monorepo packages",
+  "private": true,
+  "bin": {
+    "toolings-lint": "bin/toolings-lint.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "scripts": {
+    "lint": "node bin/toolings-lint.js check ."
+  },
+  "dependencies": {
+    "@biomejs/biome": "2.4.16"
+  }
+}

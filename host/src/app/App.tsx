@@ -1,5 +1,16 @@
 import { Link, Route, Routes, useLocation } from 'react-router-dom'
-import { routes } from './routes.jsx'
+import { routes } from './routes'
+
+/** Props the host renders every page with. */
+export interface PageProps {
+  renderedAt: string
+}
+
+export interface AppProps {
+  initialPath: string
+  pageProps: PageProps
+  versions: string[]
+}
 
 function Header() {
   return (
@@ -17,8 +28,12 @@ function Header() {
   )
 }
 
-function Footer({ versions }) {
-  return <footer>Footer rendered by host · hybrid rendering demo · serving {versions.join(' · ')}</footer>
+function Footer({ versions }: { versions: string[] }) {
+  return (
+    <footer>
+      Footer rendered by host · hybrid rendering demo · serving {versions.join(' · ')}
+    </footer>
+  )
 }
 
 /**
@@ -26,10 +41,12 @@ function Footer({ versions }) {
  * `pageProps` are the props the server rendered the initial page with; pages
  * reached by client-side navigation get placeholder props instead.
  */
-export default function App({ initialPath, pageProps, versions }) {
+export default function App({ initialPath, pageProps, versions }: AppProps) {
   const { pathname } = useLocation()
-  const props =
-    pathname === initialPath ? pageProps : { renderedAt: 'never — navigated client-side (pure CSR)' }
+  const props: PageProps =
+    pathname === initialPath
+      ? pageProps
+      : { renderedAt: 'never — navigated client-side (pure CSR)' }
 
   return (
     <>

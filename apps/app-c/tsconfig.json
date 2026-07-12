@@ -1,0 +1,4 @@
+{
+  "extends": "@microfe/typescript/tsconfig/react-app.json",
+  "include": ["src"]
+}
