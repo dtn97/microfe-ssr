@@ -10,7 +10,7 @@ a request end to end through the actual code.
 A micro app is **multi-entry**: its `microfe.config.js` declares an array of
 modules, each pairing a globally unique `moduleId` with a client entry
 (app-b exposes `app-b/b1` and `app-b/b2`; app-a exposes just `app-a/main`).
-All apps build through the shared `microfe-build` CLI from `@microfe/build`,
+All apps build through the shared `microfe-build-app` CLI from `@microfe/build`,
 and the two sides split differently on purpose
 ([toolings/build/lib/build.mjs](../toolings/build/lib/build.mjs)):
 

@@ -1,6 +1,7 @@
 import { defineConfig } from '@microfe/build'
 
 export default defineConfig({
+  type: 'app',
   name: '@microfe/app-b',
   server: 'src/server.ts',
   modules: [

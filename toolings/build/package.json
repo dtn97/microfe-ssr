@@ -1,13 +1,14 @@
 {
   "name": "@microfe/build",
   "version": "1.0.0",
-  "description": "Shared build toolkit: builds micro app server/client bundles from a microfe.config.js and publishes the deploy manifest",
+  "description": "Shared build toolkit: builds the host bundles or a micro app's server/client bundles from a microfe.config.js (and publishes the app deploy manifest)",
   "private": true,
   "type": "module",
   "main": "index.mjs",
   "types": "index.d.ts",
   "bin": {
-    "microfe-build": "bin/microfe-build.js"
+    "microfe-build-app": "bin/microfe-build-app.js",
+    "microfe-build-host": "bin/microfe-build-host.js"
   },
   "files": [
     "bin",

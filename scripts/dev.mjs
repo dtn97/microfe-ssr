@@ -17,12 +17,14 @@ const build = spawnSync('node', ['common/scripts/install-run-rush.js', 'build'],
 })
 if (build.status !== 0) process.exit(build.status ?? 1)
 
-// Micro apps build through the shared @microfe/build CLI (their `dev`
-// script); resolve its bin through each app's node_modules so this script
-// needs no package-manager indirection.
-const microAppDev = ['node_modules/@microfe/build/bin/microfe-build.js', 'dev']
+// The host and the micro apps all build through the shared @microfe/build
+// CLI (their `dev` scripts) — the host via microfe-build-host, the apps via
+// microfe-build-app. Resolve the bins through each project's node_modules so
+// this script needs no package-manager indirection.
+const hostDev = ['node_modules/@microfe/build/bin/microfe-build-host.js', 'dev']
+const microAppDev = ['node_modules/@microfe/build/bin/microfe-build-app.js', 'dev']
 const tasks = [
-  { name: 'host ', cmd: 'node', args: ['build.mjs', '--watch'], cwd: 'host' },
+  { name: 'host ', cmd: 'node', args: hostDev, cwd: 'host' },
   { name: 'app-a', cmd: 'node', args: microAppDev, cwd: 'apps/app-a' },
   { name: 'app-b', cmd: 'node', args: microAppDev, cwd: 'apps/app-b' },
   { name: 'app-c', cmd: 'node', args: microAppDev, cwd: 'apps/app-c' },

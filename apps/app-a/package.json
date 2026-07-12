@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "microfe-build build",
-    "dev": "microfe-build dev",
+    "build": "microfe-build-app build",
+    "dev": "microfe-build-app dev",
     "typecheck": "microfe-tsc --noEmit",
     "lint": "microfe-lint check src"
   },

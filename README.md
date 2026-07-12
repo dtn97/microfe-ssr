@@ -4,7 +4,7 @@ A minimal proof of concept for **SSR + hydration + SPA routing across independen
 
 ## What it demonstrates
 
-1. **Independent bundling, multi-entry** — the host and each micro app build on their own, through the shared `microfe-build` CLI (`@microfe/build`, esbuild inside). A micro app declares its exposed modules in `microfe.config.js` — an array of `{ moduleId, entry }`, where `moduleId` is the globally unique id the module is loaded by (app-b exposes `app-b/b1` and `app-b/b2`). Each build produces:
+1. **Independent bundling, multi-entry** — the host and each micro app build on their own, through the shared `@microfe/build` toolkit (esbuild inside): the host via `microfe-build-host`, each micro app via `microfe-build-app`, selected by a `type: 'host' | 'app'` field in `microfe.config.js`. A micro app declares its exposed modules in `microfe.config.js` — an array of `{ moduleId, entry }`, where `moduleId` is the globally unique id the module is loaded by (app-b exposes `app-b/b1` and `app-b/b2`). Each micro app build produces:
    - `dist/server/server.<hash>.js` — the app's **single server bundle** (no splitting; SSR gains nothing from it), exporting each module as a named export (`src/server.ts`)
    - `dist/client/<module>.client.<hash>.js` — tiny browser ES module per exposed module, built together with code splitting: shared code lands once in `chunks/`, and a module's own `React.lazy` imports become **on-demand chunks** (B1's `SalesChart` is fetched only when the user clicks "Load sales chart"). Every artifact filename carries a content hash, so a new version is a new URL.
 2. **Route-based composition** — the host owns the route table (`/` → app-a's `main`, `/b1` and `/b2` → app-b's `b1`/`b2` modules) and the page chrome (header with nav, footer). On each request it renders one React tree — `<App>` = header + the matched micro app's component + footer — with `renderToString` inside a `StaticRouter`; micro apps only ever render page content. Content is visible before any JS runs.
@@ -26,9 +26,9 @@ host/
   src/server.tsx       # Express bootstrap + renderToString(<StaticRouter><App/>)
   src/client.tsx       # runtime SDK: shared React/Router on window.__MICROFE__,
                        #   client provider (lazy bundle loading), hydrate <App/>
-  build.mjs            # builds the SDK bundle and the host server bundle
+  microfe.config.js    # type: 'host' + client/server entries (@microfe/build)
 apps/app-a/            # exposes module "app-a/main" (home page /)
-  microfe.config.js              # app name + exposed modules (@microfe/build)
+  microfe.config.js              # type: 'app' + name + exposed modules (@microfe/build)
   src/pages/Home.tsx
   src/server.ts                  # single SSR bundle: named export per module
   src/entries/main.client.ts
@@ -44,8 +44,8 @@ apps/app-c/            # nested micro app: exposes "app-c/main", embedded by B2
   src/pages/Widget.tsx
 packages/types/        # @microfe/types: shared type contract — the @microfe/sdk
                        #   module, window.__MICROFE__, and the bootstrap payload
-toolings/build/        # @microfe/build: `microfe-build build|dev` CLI —
-                       #   esbuild config, SDK shims, manifest publishing
+toolings/build/        # @microfe/build: `microfe-build-app` / `microfe-build-host`
+                       #   (build|dev) CLIs — esbuild config, SDK shims, manifest publishing
 scripts/dev.mjs        # pnpm dev: all watchers + auto-restarting server
 ```
 
@@ -81,7 +81,7 @@ This repo is managed with [Rush](https://rushjs.io) + pnpm (`npm install -g @mic
 
 ```sh
 rush update       # install dependencies (pnpm, managed by Rush)
-rush build        # builds SDK + all micro apps (via the shared microfe-build CLI)
+rush build        # builds host SDK + all micro apps (via the shared @microfe/build CLIs)
 pnpm start        # http://localhost:3000
 ```
 

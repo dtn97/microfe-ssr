@@ -143,6 +143,9 @@ importers:
       '@microfe/biome':
         specifier: workspace:*
         version: link:../toolings/biome
+      '@microfe/build':
+        specifier: workspace:*
+        version: link:../toolings/build
       '@microfe/types':
         specifier: workspace:*
         version: link:../packages/types
@@ -161,9 +164,6 @@ importers:
       '@types/react-dom':
         specifier: catalog:react18
         version: 18.3.7(@types/react@18.3.31)
-      esbuild:
-        specifier: catalog:build
-        version: 0.25.12
 
   ../../packages/types:
     devDependencies:
