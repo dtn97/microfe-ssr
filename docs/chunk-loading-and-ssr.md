@@ -27,11 +27,15 @@ and the two sides split differently on purpose
 
 | Artifact | Runs where | Contains |
 |---|---|---|
-| `dist/server/index.js` | Node, inside the host | ALL modules as named exports (`{ b1, b2 }`). React/Router left as bare `import`s (`packages: 'external'`) |
-| `dist/client/<module>.client.js` | Browser | ES-module entry, a few KB: imports the page from the shared chunk, registers with the SDK |
+| `dist/server/server.<hash>.js` | Node, inside the host | ALL modules as named exports (`{ b1, b2 }`). React/Router left as bare `import`s (`packages: 'external'`) |
+| `dist/client/<module>.client.<hash>.js` | Browser | ES-module entry, a few KB: imports the page from the shared chunk, registers with the SDK |
 | `dist/client/chunks/chunk-*.js` | Browser | Code shared between the app's client entries (content-hashed filename) |
 | `dist/client/chunks/SalesChart-*.js` | Browser | An on-demand chunk, private to module b1 — fetched only when B1 renders it |
-| `dist/manifest.json` | Read by host | `{ name, version: <content-hash over ALL artifacts>, server: 'server/index.js', modules: [{ moduleId, client, serverExport, uses? }, …] }` |
+| `dist/manifest.json` | Read by host | `{ name, version: <content-hash over ALL artifacts>, server: 'server/server.<hash>.js', modules: [{ moduleId, client, serverExport, uses? }, …] }` |
+
+Every filename carries a content hash (esbuild `entryNames`/`chunkNames`), so
+a new version of any artifact is a new path — the manifest records the actual
+paths of the current build.
 
 The manifest is the contract: the host never hardcodes bundle paths, module
 lists, or versions — it discovers them here, per request. `moduleId` is
@@ -54,12 +58,14 @@ const serverExports = await import(`${serverUrl}?v=${manifest.version}`)     // 
 // serverExports = { b1: Component, b2: Component } — one import per app
 ```
 
-Step 3 is the actual chunk load, and the `?v=` is the whole trick. Node's ESM
-module cache is keyed by the **exact URL string**:
+Step 3 is the actual chunk load. Node's ESM module cache is keyed by the
+**exact URL string**, and the server bundle's filename carries a content
+hash (`manifest.server` = `server/server.<hash>.js`):
 
-- same URL → instant cache hit, no disk I/O, no re-evaluation;
-- new version → new URL → Node loads and evaluates the new file even though
-  the path on disk is identical.
+- unchanged bundle → same URL → instant cache hit, no disk I/O, no
+  re-evaluation;
+- new version → new filename → new URL → Node loads and evaluates the new
+  file (the `?v=` suffix is belt-and-suspenders on top of the hashed name).
 
 That's why a micro app deploy takes effect on the next request with no host
 restart. The cost: old module versions can never be evicted from the ESM
@@ -135,12 +141,12 @@ The page embeds everything the client needs to take over:
 <script type="application/json" id="microfe-bootstrap">
   { "initialPath": "/", "initialModule": "app-a/main",
     "pageProps": { "renderedAt": "..." },
-    "modules": { "app-a/main": ".../main.client.js?v=a01...",
-                 "app-b/b1":   ".../b1.client.js?v=236...",
-                 "app-b/b2":   ".../b2.client.js?v=236..." } }
+    "modules": { "app-a/main": ".../main.client.HGS2E4TD.js?v=a01...",
+                 "app-b/b1":   ".../b1.client.WM3RBTQG.js?v=236...",
+                 "app-b/b2":   ".../b2.client.GPCSXPWE.js?v=236..." } }
 </script>
 <script src="/sdk/microfe-sdk.js"></script>
-<script type="module" src="/static/app-a/client/main.client.js?v=a01..." data-microfe-entry="app-a/main"></script>
+<script type="module" src="/static/app-a/client/main.client.HGS2E4TD.js?v=a01..." data-microfe-entry="app-a/main"></script>
 ```
 
 - `pageProps` are the **exact SSR inputs**, serialized so the client hydrates
