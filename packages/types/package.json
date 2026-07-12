@@ -1,0 +1,26 @@
+{
+  "name": "@microfe/types",
+  "version": "1.0.0",
+  "description": "Shared type contract for the microfe framework: SDK modules, runtime globals, and the hydration bootstrap payload",
+  "private": true,
+  "types": "index.d.ts",
+  "exports": {
+    ".": "./index.d.ts",
+    "./client": "./client.d.ts"
+  },
+  "files": [
+    "index.d.ts",
+    "client.d.ts"
+  ],
+  "scripts": {
+    "typecheck": "microfe-tsc -p tsconfig.json",
+    "lint": "microfe-lint check ."
+  },
+  "devDependencies": {
+    "@microfe/biome": "workspace:*",
+    "@microfe/typescript": "workspace:*",
+    "@types/react": "catalog:react18",
+    "@types/react-dom": "catalog:react18",
+    "react-router-dom": "catalog:react18"
+  }
+}

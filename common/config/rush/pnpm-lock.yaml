@@ -50,6 +50,9 @@ importers:
       '@microfe/build':
         specifier: workspace:*
         version: link:../../toolings/build
+      '@microfe/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@microfe/typescript':
         specifier: workspace:*
         version: link:../../toolings/typescript
@@ -78,6 +81,9 @@ importers:
       '@microfe/build':
         specifier: workspace:*
         version: link:../../toolings/build
+      '@microfe/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@microfe/typescript':
         specifier: workspace:*
         version: link:../../toolings/typescript
@@ -106,6 +112,9 @@ importers:
       '@microfe/build':
         specifier: workspace:*
         version: link:../../toolings/build
+      '@microfe/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@microfe/typescript':
         specifier: workspace:*
         version: link:../../toolings/typescript
@@ -134,6 +143,9 @@ importers:
       '@microfe/biome':
         specifier: workspace:*
         version: link:../toolings/biome
+      '@microfe/types':
+        specifier: workspace:*
+        version: link:../packages/types
       '@microfe/typescript':
         specifier: workspace:*
         version: link:../toolings/typescript
@@ -152,6 +164,24 @@ importers:
       esbuild:
         specifier: catalog:build
         version: 0.25.12
+
+  ../../packages/types:
+    devDependencies:
+      '@microfe/biome':
+        specifier: workspace:*
+        version: link:../../toolings/biome
+      '@microfe/typescript':
+        specifier: workspace:*
+        version: link:../../toolings/typescript
+      '@types/react':
+        specifier: catalog:react18
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: catalog:react18
+        version: 18.3.7(@types/react@18.3.31)
+      react-router-dom:
+        specifier: catalog:react18
+        version: 6.30.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
 
   ../../toolings/biome:
     dependencies:

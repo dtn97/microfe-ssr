@@ -32,6 +32,7 @@ apps/app-a/            # exposes module "app-a/main" (home page /)
   src/pages/Home.tsx
   src/server.ts                  # single SSR bundle: named export per module
   src/entries/main.client.ts
+  src/microfe-env.d.ts           # references @microfe/types/client (SDK ambient types)
 apps/app-b/            # multi-entry: exposes "app-b/b1" (/b1) and "app-b/b2" (/b2)
   microfe.config.js              # declares b1, b2 + b2's dependency on app-c
   src/pages/B1.tsx, B2.tsx
@@ -41,6 +42,8 @@ apps/app-b/            # multi-entry: exposes "app-b/b1" (/b1) and "app-b/b2" (/
   src/entries/b1.client.ts, b2.client.ts
 apps/app-c/            # nested micro app: exposes "app-c/main", embedded by B2
   src/pages/Widget.tsx
+packages/types/        # @microfe/types: shared type contract — the @microfe/sdk
+                       #   module, window.__MICROFE__, and the bootstrap payload
 toolings/build/        # @microfe/build: `microfe-build build|dev` CLI —
                        #   esbuild config, SDK shims, manifest publishing
 scripts/dev.mjs        # pnpm dev: all watchers + auto-restarting server
@@ -63,6 +66,14 @@ export const routes = [
 `getMicroAppComponent` resolves through an environment-specific provider: on the
 server it returns the component from the app's hot-loaded SSR bundle; in the
 browser it reads the SDK registry and lazy-loads the app's bundle on first use.
+
+The types behind all of this — the `@microfe/sdk` module, the `window.__MICROFE__`
+runtime SDK, and the server's bootstrap payload — live in one shared package,
+[`@microfe/types`](packages/types). A micro app pulls in the ambient SDK contract
+with a single `/// <reference types="@microfe/types/client" />` in its
+`microfe-env.d.ts`; the host imports the structural types (`MicrofeSdk`,
+`MicrofeBootstrap`, `MicroAppComponent`, …) by name. In a real multi-repo setup
+this is what the SDK package would ship as its published types.
 
 ## Run it
 

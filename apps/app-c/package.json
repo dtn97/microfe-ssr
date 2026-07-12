@@ -17,6 +17,7 @@
   "devDependencies": {
     "@microfe/biome": "workspace:*",
     "@microfe/build": "workspace:*",
+    "@microfe/types": "workspace:*",
     "@microfe/typescript": "workspace:*",
     "@types/react": "catalog:react18",
     "@types/react-dom": "catalog:react18"

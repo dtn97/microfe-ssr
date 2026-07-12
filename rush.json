@@ -80,6 +80,11 @@
       "packageName": "@microfe/typescript",
       "projectFolder": "toolings/typescript",
       "tags": ["tooling"]
+    },
+    {
+      "packageName": "@microfe/types",
+      "projectFolder": "packages/types",
+      "tags": ["lib"]
     }
   ]
 }

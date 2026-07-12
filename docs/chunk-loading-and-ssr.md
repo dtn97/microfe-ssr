@@ -283,6 +283,11 @@ The shims differ per environment but point at the same provider:
 - server: `module.exports = globalThis.__MICROFE_SSR__` — set by the host's
   registry *before* it imports any micro app server bundle
 
+The static type behind that import is ambient: the `@microfe/types` package
+declares `module '@microfe/sdk'`, and each app references it from its
+`microfe-env.d.ts` (`/// <reference types="@microfe/types/client" />`) — so the
+virtual package type-checks even though no `@microfe/sdk` exists on disk.
+
 SSR just works: one render pass walks host chrome → B2 → C, all one React
 tree. Hydration needs one extra piece of coordination: the SSR HTML for
 `/b2` *contains* C's markup, so C's client entry must be registered before

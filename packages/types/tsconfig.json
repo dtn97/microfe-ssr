@@ -1,0 +1,5 @@
+{
+  "extends": "@microfe/typescript/tsconfig/react-app.json",
+  "_comment": "Type-check the ambient/structural declarations. Uses the react-app lib set (DOM + ES2022) since the SDK types reference window and the React DOM/Router runtimes.",
+  "include": ["index.d.ts", "client.d.ts"]
+}

@@ -7,10 +7,12 @@
  *   - server: the app's SSR bundle, hot-loaded by registry.ts
  *   - client: the SDK registry, lazy-loading the app's bundle on demand
  */
+// The micro app component contract lives in the shared type package; re-exported
+// here so the rest of the host keeps importing it from a single runtime module.
+import type { MicroAppComponent, MicroAppProps } from '@microfe/types'
 import * as React from 'react'
 
-export type MicroAppProps = Record<string, unknown>
-export type MicroAppComponent = React.ComponentType<MicroAppProps>
+export type { MicroAppComponent, MicroAppProps }
 
 export interface MicroAppProvider {
   get(id: string): MicroAppComponent | undefined

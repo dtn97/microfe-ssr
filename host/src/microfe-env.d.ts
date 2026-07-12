@@ -1,33 +1,23 @@
 /**
- * Ambient declarations for the host's two runtime globals:
+ * Ambient declarations for the host's two runtime globals, built on the shared
+ * '@microfe/types' contract:
  *  - window.__MICROFE__ — the client SDK (shared React/Router + registry)
  *  - globalThis.__MICROFE_SSR__ — the server face of '@microfe/sdk'
  */
+import type {
+  MicrofeBootstrap as MicrofeBootstrapBase,
+  MicrofeSdk,
+  MicrofeSsr,
+} from '@microfe/types'
+import type { PageProps } from './app/App'
 
-/** The bootstrap payload the server embeds in the page for hydration. */
-interface MicrofeBootstrap {
-  initialPath: string
-  initialModule: string
-  preload: string[]
-  pageProps: import('./app/App').PageProps
-  versions: string[]
-  /** moduleId -> client entry URL */
-  modules: Record<string, string>
-}
+declare global {
+  /** The bootstrap payload the server embeds, with the host's concrete page props. */
+  type MicrofeBootstrap = MicrofeBootstrapBase<PageProps>
 
-interface MicrofeSdk {
-  React: typeof import('react')
-  ReactDOMClient: typeof import('react-dom/client')
-  jsxRuntime: typeof import('react/jsx-runtime')
-  ReactRouterDOM: typeof import('react-router-dom')
-  getMicroAppComponent: (id: string) => import('./app/runtime').MicroAppComponent
-  register: (moduleId: string, Component: import('./app/runtime').MicroAppComponent) => void
-}
+  interface Window {
+    __MICROFE__: MicrofeSdk
+  }
 
-interface Window {
-  __MICROFE__: MicrofeSdk
-}
-
-declare var __MICROFE_SSR__: {
-  getMicroAppComponent: (id: string) => import('./app/runtime').MicroAppComponent
+  var __MICROFE_SSR__: MicrofeSsr
 }
