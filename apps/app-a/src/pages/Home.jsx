@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-export default function App({ renderedAt }) {
+export default function Home({ renderedAt }) {
   const navigate = useNavigate()
   const [count, setCount] = useState(0)
   const [hydrated, setHydrated] = useState(false)
@@ -14,8 +14,11 @@ export default function App({ renderedAt }) {
         Server-rendered at: {renderedAt} · status: {hydrated ? '✅ hydrated' : '⏳ static HTML'}
       </p>
       <button onClick={() => setCount((c) => c + 1)}>A clicked {count} times</button>
-      <button style={{ marginLeft: '0.5rem' }} onClick={() => navigate('/b')}>
-        Go to Page B →
+      <button style={{ marginLeft: '0.5rem' }} onClick={() => navigate('/b1')}>
+        Go to Page B1 →
+      </button>
+      <button style={{ marginLeft: '0.5rem' }} onClick={() => navigate('/b2')}>
+        Go to Page B2 →
       </button>
     </div>
   )

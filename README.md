@@ -4,13 +4,13 @@ A minimal proof of concept for **SSR + hydration + SPA routing across independen
 
 ## What it demonstrates
 
-1. **Independent bundling** — `host`, `app-a`, and `app-b` each build on their own (esbuild). Each micro app produces two artifacts:
-   - `dist/server/entry-server.js` — Node ESM bundle exporting the page component (the host renders the tree)
-   - `dist/client/entry-client.js` — tiny browser bundle (~3 KB) that registers the app with the host SDK
-2. **Route-based composition** — the host owns the route table (`/` → app-a the home page, `/b` → app-b) and the page chrome (header with nav, footer). On each request it renders one React tree — `<App>` = header + the matched micro app's component + footer — with `renderToString` inside a `StaticRouter`; micro apps only ever render page content. Content is visible before any JS runs.
+1. **Independent bundling, multi-entry** — `host`, `app-a`, and `app-b` each build on their own (esbuild). A micro app can expose **several entry modules** (app-b exposes `b1` and `b2`); all of an app's modules build together with code splitting, so shared code lands once in `chunks/`. Per exposed module:
+   - `dist/server/<module>.server.js` — Node ESM entry exporting the page component (the host renders the tree)
+   - `dist/client/<module>.client.js` — tiny browser ES module that registers with the host SDK; shared code arrives via the common chunk it imports
+2. **Route-based composition** — the host owns the route table (`/` → app-a's `main`, `/b1` and `/b2` → app-b's `b1`/`b2` modules) and the page chrome (header with nav, footer). On each request it renders one React tree — `<App>` = header + the matched micro app's component + footer — with `renderToString` inside a `StaticRouter`; micro apps only ever render page content. Content is visible before any JS runs.
    - The whole page is one React tree owned by the host, so the header's `<Link>` nav and the micro apps share one router; header/footer never remount across navigations.
 3. **Hydration** — the browser loads the host's **runtime SDK** (`window.__MICROFE__`) once; it hydrates the page inside a shared `BrowserRouter` as soon as the matched app's client bundle registers, using the exact props the server rendered with.
-4. **SPA navigation between micro apps (CSR)** — the home page's "Go to Page B →" button (and the header nav) use React Router. On a location change, `getMicroAppComponent`'s client provider **lazy-loads app-b's bundle** and swaps it in — no full page reload (page B shows `Server-rendered at: never`). A direct request to `/b` is instead SSR'd by the host, so every route works both ways.
+4. **SPA navigation between micro apps (CSR)** — the home page's buttons (and the header nav) use React Router. On a location change, `getMicroAppComponent`'s client provider **lazy-loads that module's ES-module entry** and swaps it in — no full page reload (the page shows `Server-rendered at: never`). Navigating B1 → B2 fetches only `b2.client.js`; the shared chunk is already cached. A direct request to `/b1` is instead SSR'd by the host, so every route works both ways.
 5. **Shared runtime via SDK** — micro app client bundles alias `react`, `react/jsx-runtime`, and `react-router-dom` to the SDK's shared copies (see `apps/*/shims/`), so React + Router ship once (in the ~475 KB SDK) and all apps share one router context.
 6. **Dynamic updates, no host redeploy** — each micro app build publishes a `dist/manifest.json` whose `version` is a content hash of its artifacts. The host re-reads manifests per request and, when the version changes, hot-loads the new server bundle via `import(url + '?v=' + version)` (the ESM cache is keyed by URL). Client script URLs carry the same `?v=` for cache busting. Deploying a micro app is just `npm run build -w app-b` — the next request serves the new version.
 
@@ -26,21 +26,27 @@ host/
   src/client.jsx       # runtime SDK: shared React/Router on window.__MICROFE__,
                        #   client provider (lazy bundle loading), hydrate <App/>
   build.mjs            # builds the SDK bundle and the host server bundle
-apps/app-a/            # home page (/): entry-server exports the component,
-                       #   entry-client registers it with the SDK
-apps/app-b/            # page /b — same shape, independent build
+apps/app-a/            # exposes module "main" (home page /)
+  src/pages/Home.jsx
+  src/entries/main.server.js, main.client.js
+apps/app-b/            # multi-entry: exposes modules "b1" (/b1) and "b2" (/b2)
+  src/pages/B1.jsx, B2.jsx
+  src/shared/Panel.jsx           # shared by both → emitted once into chunks/
+  src/entries/b1.server.js, b1.client.js, b2.server.js, b2.client.js
 scripts/dev.mjs        # npm run dev: all watchers + auto-restarting server
 ```
 
-The host reads like a normal React app — micro apps are just components:
+The host reads like a normal React app — micro app modules are just components:
 
 ```jsx
-const PageAComponent = getMicroAppComponent('app-a')
-const PageBComponent = getMicroAppComponent('app-b')
+const HomePage = getMicroAppComponent('app-a/main')
+const PageB1 = getMicroAppComponent('app-b/b1')
+const PageB2 = getMicroAppComponent('app-b/b2')
 
 export const routes = [
-  { link: '/', label: 'Home (A)', app: 'app-a', component: PageAComponent },
-  { link: '/b', label: 'Page B', app: 'app-b', component: PageBComponent },
+  { link: '/', label: 'Home (A)', moduleId: 'app-a/main', component: HomePage },
+  { link: '/b1', label: 'Page B1', moduleId: 'app-b/b1', component: PageB1 },
+  { link: '/b2', label: 'Page B2', moduleId: 'app-b/b2', component: PageB2 },
 ]
 ```
 
@@ -89,21 +95,29 @@ watch mode, while the host's registry resolves every *other* app from the
 shared artifact store — plus optionally a standalone harness (a stub page that
 loads the SDK and just mounts your app) for shell-free iteration.
 
+## Docs
+
+- [docs/chunk-loading-and-ssr.md](docs/chunk-loading-and-ssr.md) — deep dive:
+  how micro app chunks are loaded (Node ESM cache trick, script-tag loading,
+  the `getMicroAppComponent` indirection) and how SSR renders one tree.
+
 ## Request flow
 
 ```
 Browser ── GET / ──► Host
-                      ├─ refresh manifests, hot-load changed server bundles
+                      ├─ refresh manifests, hot-load changed module entries
                       ├─ renderToString(<StaticRouter><App/>) — App composes
-                      │    header + app-a's component (route /) + footer
-                      └─ page: HTML + bootstrap JSON (props, versions, apps)
+                      │    header + app-a/main's component (route /) + footer
+                      └─ page: HTML + bootstrap JSON (props, versions, modules)
 Browser ◄── full HTML (content visible immediately)
   ├─ loads /sdk/microfe-sdk.js → window.__MICROFE__ (shared React + Router)
-  ├─ loads app-a's entry-client → register('app-a')
+  ├─ loads main.client.js (ES module) → register('app-a/main')
   ├─ SDK hydrates the same <App/> in a BrowserRouter → page is live React
-  └─ user clicks "Go to Page B →" (or header nav)
-       └─ client provider: lazy-load app-b's entry-client → register('app-b')
-          → render B at /b — pure CSR, no page reload
+  ├─ user clicks "Go to Page B1 →"
+  │    └─ provider: <script type=module b1.client.js> → pulls shared chunk
+  │       → register('app-b/b1') → render B1 at /b1 — pure CSR, no reload
+  └─ user clicks "Go to B2 →"
+       └─ provider loads b2.client.js only — shared chunk already cached
 ```
 
 ## What a production version adds

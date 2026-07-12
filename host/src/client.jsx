@@ -14,38 +14,44 @@ import * as ReactRouterDOM from 'react-router-dom'
 import App from './app/App.jsx'
 import { setMicroAppProvider } from './app/runtime.js'
 
-const registry = new Map() // app name -> component
-const waiters = new Map() // app name -> { promise, resolve }
+const registry = new Map() // moduleId ("<app>/<module>") -> component
+const waiters = new Map() // moduleId -> { promise, resolve }
 let bootstrap = null // injected by the host page
 
-function whenRegistered(name) {
-  if (registry.has(name)) return Promise.resolve(registry.get(name))
-  if (!waiters.has(name)) {
+function whenRegistered(moduleId) {
+  if (registry.has(moduleId)) return Promise.resolve(registry.get(moduleId))
+  if (!waiters.has(moduleId)) {
     let resolve
     const promise = new Promise((r) => (resolve = r))
-    waiters.set(name, { promise, resolve })
+    waiters.set(moduleId, { promise, resolve })
   }
-  return waiters.get(name).promise
+  return waiters.get(moduleId).promise
 }
 
-/** Load an app's client bundle on demand (no-op if already loaded/loading). */
-function ensureApp(name) {
-  if (registry.has(name)) return Promise.resolve(registry.get(name))
-  const info = bootstrap?.apps[name]
-  const alreadyInPage = document.querySelector(`script[data-microfe-entry="${name}"]`)
-  if (info && !alreadyInPage) {
-    console.log(`[microfe] lazy-loading bundle for "${name}"`)
+/**
+ * Load a module's client entry on demand (no-op if already loaded/loading).
+ * Entries are ES modules, so the browser fetches any shared chunks they
+ * import automatically — and chunks already loaded for a sibling module
+ * (e.g. b1 → b2) are served from cache.
+ */
+function ensureModule(moduleId) {
+  if (registry.has(moduleId)) return Promise.resolve(registry.get(moduleId))
+  const url = bootstrap?.modules[moduleId]
+  const alreadyInPage = document.querySelector(`script[data-microfe-entry="${moduleId}"]`)
+  if (url && !alreadyInPage) {
+    console.log(`[microfe] lazy-loading module "${moduleId}"`)
     const s = document.createElement('script')
-    s.src = info.clientScript
-    s.dataset.microfeEntry = name
+    s.type = 'module'
+    s.src = url
+    s.dataset.microfeEntry = moduleId
     document.body.appendChild(s)
   }
-  return whenRegistered(name)
+  return whenRegistered(moduleId)
 }
 
 setMicroAppProvider({
   get: (id) => registry.get(id),
-  load: ensureApp,
+  load: ensureModule,
 })
 
 window.__MICROFE__ = {
@@ -55,11 +61,11 @@ window.__MICROFE__ = {
   jsxRuntime,
   ReactRouterDOM,
 
-  /** Called by each micro app's client bundle. */
-  register(name, Component) {
-    registry.set(name, Component)
-    console.log(`[microfe] registered "${name}"`)
-    waiters.get(name)?.resolve(Component)
+  /** Called by each micro app module's client entry with its moduleId. */
+  register(moduleId, Component) {
+    registry.set(moduleId, Component)
+    console.log(`[microfe] registered "${moduleId}"`)
+    waiters.get(moduleId)?.resolve(Component)
   },
 }
 
@@ -67,9 +73,9 @@ function boot() {
   const rootEl = document.getElementById('root')
   if (!rootEl) return
   bootstrap = JSON.parse(document.getElementById('microfe-bootstrap').textContent)
-  // The initial app's <script> is already in the page (right after this one);
-  // wait for it to register so the first client render matches the SSR HTML.
-  whenRegistered(bootstrap.initialApp).then(() => {
+  // The initial module's <script> is already in the page (right after this
+  // one); wait for it to register so the first render matches the SSR HTML.
+  whenRegistered(bootstrap.initialModule).then(() => {
     ReactDOMClient.hydrateRoot(
       rootEl,
       <ReactRouterDOM.BrowserRouter>
@@ -80,7 +86,7 @@ function boot() {
         />
       </ReactRouterDOM.BrowserRouter>,
     )
-    console.log(`[microfe] hydrated "${bootstrap.initialApp}" at ${bootstrap.initialPath}`)
+    console.log(`[microfe] hydrated "${bootstrap.initialModule}" at ${bootstrap.initialPath}`)
   })
 }
 

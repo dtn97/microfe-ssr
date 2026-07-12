@@ -71,7 +71,7 @@ const devReloadScript = isDev
   </script>`
   : ''
 
-function page({ html, bootstrap, initialAppScript }) {
+function page({ html, bootstrap, initialModuleScript }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -95,7 +95,7 @@ function page({ html, bootstrap, initialAppScript }) {
   <div id="root">${html}</div>
   <script type="application/json" id="microfe-bootstrap">${escapeJson(bootstrap)}</script>
   <script src="/sdk/microfe-sdk.js"></script>
-  <script src="${initialAppScript.src}" data-microfe-entry="${initialAppScript.app}"></script>${devReloadScript}
+  <script type="module" src="${initialModuleScript.src}" data-microfe-entry="${initialModuleScript.moduleId}"></script>${devReloadScript}
 </body>
 </html>`
 }
@@ -116,12 +116,15 @@ for (const route of routes) {
 
       const bootstrap = {
         initialPath: req.path,
-        initialApp: route.app,
+        initialModule: route.moduleId,
         pageProps: { renderedAt: new Date().toLocaleTimeString() },
         versions: appNames.map((n) => `${n}@${entries.get(n).version}`),
-        // Lets the client SDK lazy-load the other apps on navigation.
-        apps: Object.fromEntries(
-          appNames.map((n) => [n, { clientScript: entries.get(n).clientScript }]),
+        // moduleId -> client entry URL; lets the SDK lazy-load any exposed
+        // module on navigation (shared chunks load via the entry's imports).
+        modules: Object.fromEntries(
+          appNames.flatMap((n) =>
+            Object.entries(entries.get(n).clientUrls).map(([m, url]) => [`${n}/${m}`, url]),
+          ),
         ),
       }
 
@@ -139,7 +142,7 @@ for (const route of routes) {
         page({
           html,
           bootstrap,
-          initialAppScript: { app: route.app, src: entries.get(route.app).clientScript },
+          initialModuleScript: { moduleId: route.moduleId, src: bootstrap.modules[route.moduleId] },
         }),
       )
     } catch (err) {
