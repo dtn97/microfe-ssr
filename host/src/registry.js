@@ -22,7 +22,7 @@ export const artifactDirs = {
 }
 export const appNames = Object.keys(artifactDirs)
 
-const loaded = new Map() // app name -> { version, modules: {m: esModule}, clientUrls: {m: url} }
+const loaded = new Map() // app name -> { version, serverExports, clientUrls: {m: url} }
 
 async function resolveApp(name) {
   const dir = artifactDirs[name]
@@ -31,23 +31,24 @@ async function resolveApp(name) {
   const cached = loaded.get(name)
   if (cached?.version === manifest.version) return cached
 
-  // Import every exposed module's server entry. The ESM cache is keyed by
-  // URL, so a version-suffixed URL hot-loads new bundles without a restart;
-  // chunks shared between modules load once (their imports carry no query —
-  // new versions reference new content-hashed chunk files). Old versions stay
-  // in memory (can't be evicted) — production hosts recycle processes.
-  const modules = {}
-  const clientUrls = {}
-  for (const [moduleName, m] of Object.entries(manifest.modules)) {
-    const serverUrl = pathToFileURL(path.join(dir, m.server)).href
-    modules[moduleName] = await import(`${serverUrl}?v=${manifest.version}`)
-    clientUrls[moduleName] = `/static/${name}/${m.client}?v=${manifest.version}`
-  }
+  // One server bundle per app; each exposed module is a named export. The
+  // ESM cache is keyed by URL, so a version-suffixed URL hot-loads the new
+  // bundle without a restart. Old versions stay in memory (can't be
+  // evicted) — production hosts recycle processes.
+  const serverUrl = pathToFileURL(path.join(dir, manifest.server)).href
+  const serverExports = await import(`${serverUrl}?v=${manifest.version}`)
 
-  const entry = { version: manifest.version, modules, clientUrls }
+  const clientUrls = Object.fromEntries(
+    Object.entries(manifest.modules).map(([m, { client }]) => [
+      m,
+      `/static/${name}/${client}?v=${manifest.version}`,
+    ]),
+  )
+
+  const entry = { version: manifest.version, serverExports, clientUrls }
   loaded.set(name, entry)
   console.log(
-    `[host] ${cached ? 'hot-loaded' : 'loaded'} ${name}@${manifest.version} (${Object.keys(modules).join(', ')})`,
+    `[host] ${cached ? 'hot-loaded' : 'loaded'} ${name}@${manifest.version} (${Object.keys(clientUrls).join(', ')})`,
   )
   return entry
 }
@@ -59,10 +60,10 @@ export async function refreshMicroApps() {
 }
 
 setMicroAppProvider({
-  // id is "<app>/<module>", e.g. "app-b/b1"
+  // id is "<app>/<module>", e.g. "app-b/b1" → named export of the app bundle
   get: (id) => {
     const [app, moduleName] = id.split('/')
-    return loaded.get(app)?.modules[moduleName]?.default
+    return loaded.get(app)?.serverExports[moduleName]
   },
   // SSR never lazy-loads: refreshMicroApps() runs before each render.
   load: () => Promise.resolve(),

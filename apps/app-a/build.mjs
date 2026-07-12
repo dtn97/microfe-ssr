@@ -8,25 +8,26 @@ const root = path.dirname(fileURLToPath(import.meta.url))
 const watch = process.argv.includes('--watch')
 const { name } = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'))
 
-// Multi-entry: every src/entries/<module>.server.js + <module>.client.js pair
-// is an exposed module. All entries of a side build together with `splitting`,
-// so code shared between modules is emitted once into chunks/.
+// Multi-entry (client side): every src/entries/<module>.client.js is an
+// exposed module. All client entries build together with `splitting`, so
+// code shared between modules is emitted once into chunks/ — and dynamic
+// import() inside a module gets its own on-demand chunk.
 const entryFiles = await fs.readdir(path.join(root, 'src/entries'))
 const entriesOf = (side) =>
   entryFiles.filter((f) => f.endsWith(`.${side}.js`)).map((f) => path.join(root, 'src/entries', f))
 
-// Server side: runs in Node inside the host. React stays external so the
-// whole server process shares one React copy.
+// Server side: ONE bundle per micro app (src/server.js exports each module
+// as a named export), no splitting — SSR gains nothing from it, and a single
+// file keeps hot-loading simple. Dynamic imports are inlined. React stays
+// external so the whole server process shares one React copy.
 const serverConfig = {
-  entryPoints: entriesOf('server'),
-  outdir: path.join(root, 'dist/server'),
+  entryPoints: [path.join(root, 'src/server.js')],
+  outfile: path.join(root, 'dist/server/index.js'),
   bundle: true,
-  splitting: true,
   format: 'esm',
   platform: 'node',
   packages: 'external',
   jsx: 'automatic',
-  chunkNames: 'chunks/[name]-[hash]',
   metafile: true,
   logLevel: 'info',
 }
@@ -52,37 +53,40 @@ const clientConfig = {
   logLevel: 'info',
 }
 
-// metafile → { moduleName: dist-relative entry path }, e.g. b1.server.js
-// produced dist/server/b1.server.js → { b1: 'server/b1.server.js' }
+// metafile → { moduleName: dist-relative entry path }, e.g. b1.client.js
+// produced dist/client/b1.client.js → { b1: 'client/b1.client.js' }.
+// Only files under src/entries/ count as exposed modules — esbuild also
+// tags dynamically-imported chunks (React.lazy) with an entryPoint, and
+// those are internal to their module, not part of the app's contract.
 function entryOutputs(metafile) {
   const map = {}
+  const entriesDir = path.join(root, 'src/entries')
   for (const [outPath, out] of Object.entries(metafile.outputs)) {
-    if (!out.entryPoint) continue
+    if (!out.entryPoint || !path.resolve(out.entryPoint).startsWith(entriesDir)) continue
     const moduleName = path.basename(out.entryPoint).split('.')[0]
     map[moduleName] = path.relative(path.join(root, 'dist'), path.resolve(outPath))
   }
   return map
 }
 
-// Publish the deploy manifest: exposed modules + a content-hash version over
-// ALL artifacts (entries and chunks), so any change bumps the version.
+// Publish the deploy manifest: the app's single server bundle + per-module
+// client entries, with a content-hash version over ALL artifacts (entries
+// and chunks), so any change bumps the version.
 async function publishManifest(serverMeta, clientMeta) {
   const files = [...Object.keys(serverMeta.outputs), ...Object.keys(clientMeta.outputs)].sort()
   const hash = crypto.createHash('sha256')
   for (const f of files) hash.update(await fs.readFile(path.resolve(f)))
   const version = hash.digest('hex').slice(0, 12)
 
-  const server = entryOutputs(serverMeta)
   const client = entryOutputs(clientMeta)
   const manifest = {
     name,
     version,
-    modules: Object.fromEntries(
-      Object.keys(server).map((m) => [m, { server: server[m], client: client[m] }]),
-    ),
+    server: 'server/index.js', // the one server bundle (fixed outfile)
+    modules: Object.fromEntries(Object.keys(client).map((m) => [m, { client: client[m] }])),
   }
   await fs.writeFile(path.join(root, 'dist/manifest.json'), JSON.stringify(manifest, null, 2))
-  console.log(`[${name}] published manifest version ${version} (modules: ${Object.keys(server).join(', ')})`)
+  console.log(`[${name}] published manifest version ${version} (modules: ${Object.keys(client).join(', ')})`)
 }
 
 if (watch) {

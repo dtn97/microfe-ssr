@@ -7,20 +7,27 @@ a request end to end through the actual code.
 
 ## The artifacts: what a "chunk" is here
 
-A micro app is **multi-entry**: every `src/entries/<module>.server.js` +
-`<module>.client.js` pair is an exposed module (app-b exposes `b1` and `b2`;
-app-a exposes just `main`). Each side builds all entries together with esbuild
-`splitting: true`, so code shared between modules — like app-b's `Panel`
-component and the runtime shims — is emitted once into `chunks/`
+A micro app is **multi-entry**: every `src/entries/<module>.client.js` is an
+exposed module (app-b exposes `b1` and `b2`; app-a exposes just `main`). The
+two sides split differently on purpose
 ([apps/app-b/build.mjs](../apps/app-b/build.mjs)):
+
+- **Client: full splitting.** All client entries build together with esbuild
+  `splitting: true` — code shared between modules (app-b's `Panel`, the
+  runtime shims) is emitted once into `chunks/`, and a `React.lazy(() =>
+  import(...))` inside a module becomes its own **on-demand chunk**.
+- **Server: one bundle per app.** `src/server.js` exports every module as a
+  named export and builds without splitting into a single file. SSR gains
+  nothing from splitting (Node loads from disk), and one file keeps
+  hot-loading trivial; dynamic imports are inlined.
 
 | Artifact | Runs where | Contains |
 |---|---|---|
-| `dist/server/<module>.server.js` | Node, inside the host | The module's page component, ESM entry. React/Router left as bare `import`s (`packages: 'external'`) |
-| `dist/server/chunks/chunk-*.js` | Node | Code shared between the app's server entries |
+| `dist/server/index.js` | Node, inside the host | ALL modules as named exports (`{ b1, b2 }`). React/Router left as bare `import`s (`packages: 'external'`) |
 | `dist/client/<module>.client.js` | Browser | ES-module entry, a few KB: imports the page from the shared chunk, registers with the SDK |
 | `dist/client/chunks/chunk-*.js` | Browser | Code shared between the app's client entries (content-hashed filename) |
-| `dist/manifest.json` | Read by host | `{ name, version: <content-hash over ALL artifacts>, modules: { b1: { server, client }, … } }` |
+| `dist/client/chunks/SalesChart-*.js` | Browser | An on-demand chunk, private to module b1 — fetched only when B1 renders it |
+| `dist/manifest.json` | Read by host | `{ name, version: <content-hash over ALL artifacts>, server: 'server/index.js', modules: { b1: { client }, … } }` |
 
 The manifest is the contract: the host never hardcodes bundle paths, module
 lists, or versions — it discovers them here, per request. Identifiers are
@@ -33,10 +40,10 @@ before rendering anything the handler calls `refreshMicroApps()`
 ([host/src/registry.js](../host/src/registry.js)), which for each app does:
 
 ```js
-const manifest = JSON.parse(await fs.readFile(dir + '/manifest.json'))     // 1
-if (cached?.version === manifest.version) return cached                    // 2
-for (const [moduleName, m] of Object.entries(manifest.modules))            // 3
-  modules[moduleName] = await import(`${serverUrl(m)}?v=${manifest.version}`)
+const manifest = JSON.parse(await fs.readFile(dir + '/manifest.json'))       // 1
+if (cached?.version === manifest.version) return cached                      // 2
+const serverExports = await import(`${serverUrl}?v=${manifest.version}`)     // 3
+// serverExports = { b1: Component, b2: Component } — one import per app
 ```
 
 Step 3 is the actual chunk load, and the `?v=` is the whole trick. Node's ESM
@@ -51,13 +58,6 @@ restart. The cost: old module versions can never be evicted from the ESM
 cache — memory grows with each deploy until the process recycles (production
 hosts recycle workers/processes for this reason).
 
-Shared chunks compose cleanly with this: `b1.server.js?v=X` imports
-`./chunks/chunk-KUJVUUPY.js` *relatively*, and relative resolution drops the
-query — so when b2's entry imports the same chunk, Node reuses the already
-loaded instance (shared module state within one version). A new deploy emits a
-chunk with a new content-hash filename, so new entries never collide with old
-cached chunks.
-
 When the module evaluates, its `import 'react'` statements resolve through
 Node's normal algorithm to the workspace-hoisted `node_modules` — so the
 chunk's components are built from the *same React instance* the host renders
@@ -65,14 +65,14 @@ with. That's what makes single-tree composition possible.
 
 ### The `getMicroAppComponent` indirection
 
-The loaded module's default export is just a React component. The registry
-plugs it into the provider:
+Each named export of the app's server bundle is just a React component. The
+registry plugs them into the provider:
 
 ```js
 setMicroAppProvider({
-  get: (id) => {           // id = "<app>/<module>"
+  get: (id) => {           // id = "<app>/<module>" → named export
     const [app, moduleName] = id.split('/')
-    return loaded.get(app)?.modules[moduleName]?.default
+    return loaded.get(app)?.serverExports[moduleName]
   },
   load: () => Promise.resolve(),   // SSR never lazy-loads; refresh ran already
 })
@@ -209,15 +209,30 @@ payoff: modules of one app share code at build time *and* at load time. The
 wrapper is essentially a hand-rolled `React.lazy`, with a registry instead of
 a module promise.
 
+**5. In-module lazy loading** is just plain React from here. B1 declares
+
+```js
+const SalesChart = lazy(() => import('../components/SalesChart.jsx'))
+```
+
+and renders it inside `<Suspense>` only after a click. The client build's
+splitting turns that `import()` into b1's own on-demand chunk
+(`SalesChart-<hash>.js`), fetched at click time — a third level of splitting
+below app and module, needing zero SDK involvement. On the server the same
+source is safe because the single-bundle build inlines the dynamic import,
+and the chart is behind interaction state, so SSR never renders it. (A lazy
+component that must be visible in the SSR HTML is a different problem — that's
+the streaming/`renderToPipeableStream` upgrade path.)
+
 ## Sequence overview
 
 ```
 SERVER (per request)                        BROWSER
 ────────────────────                        ───────
 read manifest.json per app
-  version changed? import every module
-  entry (url?v=hash) — shared server
-  chunks load once per version
+  version changed? import the app's ONE
+  server bundle (url?v=hash) — modules
+  are its named exports
 provider.get('app-a/main') → component
 renderToString(<StaticRouter><App/>)
   App = Header + MicroApp(route) + Footer
@@ -233,6 +248,9 @@ send HTML + bootstrap JSON + scripts  ───►  paint SSR HTML (no JS yet)
                                             … navigate to /b2 …
                                               → fetch b2.client.js ONLY
                                                 (shared chunk already cached)
+                                            … on /b1, click "Load sales chart" …
+                                              → React.lazy: fetch
+                                                SalesChart-<hash>.js ONLY
 ```
 
 ## Why script-tag + global registration instead of `import()`?

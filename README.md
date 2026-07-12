@@ -4,9 +4,9 @@ A minimal proof of concept for **SSR + hydration + SPA routing across independen
 
 ## What it demonstrates
 
-1. **Independent bundling, multi-entry** — `host`, `app-a`, and `app-b` each build on their own (esbuild). A micro app can expose **several entry modules** (app-b exposes `b1` and `b2`); all of an app's modules build together with code splitting, so shared code lands once in `chunks/`. Per exposed module:
-   - `dist/server/<module>.server.js` — Node ESM entry exporting the page component (the host renders the tree)
-   - `dist/client/<module>.client.js` — tiny browser ES module that registers with the host SDK; shared code arrives via the common chunk it imports
+1. **Independent bundling, multi-entry** — `host`, `app-a`, and `app-b` each build on their own (esbuild). A micro app can expose **several entry modules** (app-b exposes `b1` and `b2`):
+   - `dist/server/index.js` — the app's **single server bundle** (no splitting; SSR gains nothing from it), exporting each module as a named export (`src/server.js`)
+   - `dist/client/<module>.client.js` — tiny browser ES module per exposed module, built together with code splitting: shared code lands once in `chunks/`, and a module's own `React.lazy` imports become **on-demand chunks** (B1's `SalesChart` is fetched only when the user clicks "Load sales chart")
 2. **Route-based composition** — the host owns the route table (`/` → app-a's `main`, `/b1` and `/b2` → app-b's `b1`/`b2` modules) and the page chrome (header with nav, footer). On each request it renders one React tree — `<App>` = header + the matched micro app's component + footer — with `renderToString` inside a `StaticRouter`; micro apps only ever render page content. Content is visible before any JS runs.
    - The whole page is one React tree owned by the host, so the header's `<Link>` nav and the micro apps share one router; header/footer never remount across navigations.
 3. **Hydration** — the browser loads the host's **runtime SDK** (`window.__MICROFE__`) once; it hydrates the page inside a shared `BrowserRouter` as soon as the matched app's client bundle registers, using the exact props the server rendered with.
@@ -28,11 +28,14 @@ host/
   build.mjs            # builds the SDK bundle and the host server bundle
 apps/app-a/            # exposes module "main" (home page /)
   src/pages/Home.jsx
-  src/entries/main.server.js, main.client.js
+  src/server.js                  # single SSR bundle: named export per module
+  src/entries/main.client.js
 apps/app-b/            # multi-entry: exposes modules "b1" (/b1) and "b2" (/b2)
   src/pages/B1.jsx, B2.jsx
   src/shared/Panel.jsx           # shared by both → emitted once into chunks/
-  src/entries/b1.server.js, b1.client.js, b2.server.js, b2.client.js
+  src/components/SalesChart.jsx  # React.lazy inside B1 → own on-demand chunk
+  src/server.js                  # single SSR bundle: named export per module
+  src/entries/b1.client.js, b2.client.js
 scripts/dev.mjs        # npm run dev: all watchers + auto-restarting server
 ```
 
@@ -62,7 +65,7 @@ npm run build     # builds SDK + both micro apps (each via its own build.mjs)
 npm start         # http://localhost:3000
 ```
 
-Try a live micro app deploy while the host is running: edit `apps/app-b/src/App.jsx`, run `npm run build -w app-b`, refresh the page. The host logs `hot-loaded app-b@<new-version>` and serves the new SSR output — no restart.
+Try a live micro app deploy while the host is running: edit `apps/app-b/src/pages/B1.jsx`, run `npm run build -w app-b`, refresh the page. The host logs `hot-loaded app-b@<new-version>` and serves the new SSR output — no restart.
 
 ## Development workflow
 
@@ -105,7 +108,7 @@ loads the SDK and just mounts your app) for shell-free iteration.
 
 ```
 Browser ── GET / ──► Host
-                      ├─ refresh manifests, hot-load changed module entries
+                      ├─ refresh manifests, hot-load changed server bundles
                       ├─ renderToString(<StaticRouter><App/>) — App composes
                       │    header + app-a/main's component (route /) + footer
                       └─ page: HTML + bootstrap JSON (props, versions, modules)
