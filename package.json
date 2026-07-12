@@ -1,0 +1,14 @@
+{
+  "name": "microfe-ssr",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "host",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "start": "node host/dist/server/server.js",
+    "dev": "node scripts/dev.mjs"
+  }
+}
