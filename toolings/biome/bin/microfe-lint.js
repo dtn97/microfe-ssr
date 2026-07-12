@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * `toolings-lint` — run the monorepo's bundled Biome.
+ * `microfe-lint` — run the monorepo's bundled Biome.
  *
  * Resolves the `biome` CLI from this package, so consumer packages only need
  * to depend on `@microfe/biome` (they don't list `@biomejs/biome` directly,
@@ -9,10 +9,10 @@
  * Arguments are forwarded straight through to Biome, so the calling script
  * decides what to do:
  *
- *   toolings-lint check src           # lint + format check the src folder
- *   toolings-lint check --fix src     # apply safe fixes (maps to Biome's --write)
- *   toolings-lint check --fix --unsafe src
- *   toolings-lint format --fix .
+ *   microfe-lint check src           # lint + format check the src folder
+ *   microfe-lint check --fix src     # apply safe fixes (maps to Biome's --write)
+ *   microfe-lint check --fix --unsafe src
+ *   microfe-lint format --fix .
  *
  * As a convenience, `--fix` is translated to Biome's `--write` flag (Biome has
  * no `--fix`); pair it with `--unsafe` to also apply unsafe fixes. Everything

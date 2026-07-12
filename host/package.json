@@ -6,8 +6,8 @@
   "scripts": {
     "build": "node build.mjs",
     "dev": "node build.mjs --watch",
-    "typecheck": "toolings-tsc --noEmit",
-    "lint": "toolings-lint check src"
+    "typecheck": "microfe-tsc --noEmit",
+    "lint": "microfe-lint check src"
   },
   "dependencies": {
     "express": "^4.21.2",

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * `toolings-tsc` — run the monorepo's bundled TypeScript compiler.
+ * `microfe-tsc` — run the monorepo's bundled TypeScript compiler.
  *
  * Resolves `tsc` from this package, so consumer packages only need to depend
  * on `@microfe/typescript` (they don't list `typescript` directly, which is
@@ -9,9 +9,9 @@
  * forwarded straight through to `tsc`, so the calling script decides what to
  * do:
  *
- *   toolings-tsc -p tsconfig.json     # check (or emit) per the tsconfig
- *   toolings-tsc --noEmit             # type-check only, no output
- *   toolings-tsc --watch
+ *   microfe-tsc -p tsconfig.json     # check (or emit) per the tsconfig
+ *   microfe-tsc --noEmit             # type-check only, no output
+ *   microfe-tsc --watch
  */
 
 const { spawnSync } = require('node:child_process')

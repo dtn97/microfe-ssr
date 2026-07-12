@@ -197,7 +197,7 @@
       "commandKind": "bulk",
       "name": "typecheck",
       "summary": "Type-check all projects with TypeScript",
-      "description": "Runs each project's 'typecheck' script (toolings-tsc --noEmit). Projects without one are skipped.",
+      "description": "Runs each project's 'typecheck' script (microfe-tsc --noEmit). Projects without one are skipped.",
       "enableParallelism": true,
       "ignoreMissingScript": true,
       "ignoreDependencyOrder": true

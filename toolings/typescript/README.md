@@ -1,7 +1,7 @@
 # @microfe/typescript
 
 Shared TypeScript toolkit for monorepo packages. It bundles `typescript` and
-exposes shared `tsconfig` presets plus the `toolings-tsc` command, so consumer
+exposes shared `tsconfig` presets plus the `microfe-tsc` command, so consumer
 packages don't each have to declare and version the compiler.
 
 ## Usage
@@ -16,7 +16,7 @@ bundled CLI (no direct `typescript` dependency needed):
     "@microfe/typescript": "workspace:*"
   },
   "scripts": {
-    "typecheck": "toolings-tsc --noEmit"
+    "typecheck": "microfe-tsc --noEmit"
   }
 }
 ```
@@ -40,14 +40,14 @@ Then run `rush update`.
   the `react-jsx` transform, and sets `noEmit` because esbuild owns the build;
   `tsc` only type-checks.
 
-## `toolings-tsc`
+## `microfe-tsc`
 
 Runs `tsc` resolved from this package and forwards every argument straight
 through:
 
 ```bash
-toolings-tsc --noEmit    # type-check only
-toolings-tsc --watch
+microfe-tsc --noEmit    # type-check only
+microfe-tsc --watch
 ```
 
 Whole-repo type-checking is available via `rush typecheck`.

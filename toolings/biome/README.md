@@ -1,18 +1,18 @@
 # @microfe/biome
 
 Shared Biome toolkit for the monorepo. Bundles [Biome](https://biomejs.dev)
-and exposes a `toolings-lint` CLI so consumer packages can lint and format
+and exposes a `microfe-lint` CLI so consumer packages can lint and format
 without listing `@biomejs/biome` directly.
 
 ## Usage
 
-Depend on this package via `workspace:*` and call `toolings-lint` from your
+Depend on this package via `workspace:*` and call `microfe-lint` from your
 package's `scripts` (it is placed on the `PATH` by Rush/`rushx`):
 
 ```jsonc
 {
   "scripts": {
-    "lint": "toolings-lint check src"
+    "lint": "microfe-lint check src"
   },
   "devDependencies": {
     "@microfe/biome": "workspace:*"
@@ -20,13 +20,13 @@ package's `scripts` (it is placed on the `PATH` by Rush/`rushx`):
 }
 ```
 
-`toolings-lint` forwards all arguments straight to Biome:
+`microfe-lint` forwards all arguments straight to Biome:
 
 ```bash
-toolings-lint check src              # lint + format check
-toolings-lint check --fix src        # apply safe fixes (maps to Biome's --write)
-toolings-lint check --fix --unsafe src
-toolings-lint format --fix .         # format only
+microfe-lint check src              # lint + format check
+microfe-lint check --fix src        # apply safe fixes (maps to Biome's --write)
+microfe-lint check --fix --unsafe src
+microfe-lint format --fix .         # format only
 ```
 
 `--fix` is a convenience alias for Biome's `--write` (Biome has no `--fix`);
