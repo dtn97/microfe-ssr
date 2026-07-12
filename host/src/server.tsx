@@ -130,6 +130,12 @@ for (const route of routes) {
         if (!entry) throw new Error(`unknown micro app "${name}"`)
         return entry
       }
+      // moduleIds are globally unique, so all apps' maps merge conflict-free.
+      const allUses = Object.assign({}, ...appNames.map((n) => appOf(n).uses))
+      const allClientUrls: Record<string, string> = Object.assign(
+        {},
+        ...appNames.map((n) => appOf(n).clientUrls),
+      )
 
       // The route's module + transitive `uses` dependencies (nested apps).
       const preload: string[] = []
@@ -138,8 +144,7 @@ for (const route of routes) {
         const id = queue.shift()
         if (!id || preload.includes(id)) continue
         preload.push(id)
-        const [app, moduleName] = id.split('/')
-        queue.push(...(appOf(app).uses[moduleName] ?? []))
+        queue.push(...(allUses[id] ?? []))
       }
 
       const bootstrap: MicrofeBootstrap = {
@@ -150,11 +155,7 @@ for (const route of routes) {
         versions: appNames.map((n) => `${n}@${appOf(n).version}`),
         // moduleId -> client entry URL; lets the SDK lazy-load any exposed
         // module on navigation (shared chunks load via the entry's imports).
-        modules: Object.fromEntries(
-          appNames.flatMap((n) =>
-            Object.entries(appOf(n).clientUrls).map(([m, url]) => [`${n}/${m}`, url]),
-          ),
-        ),
+        modules: allClientUrls,
       }
 
       const html = renderToString(

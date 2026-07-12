@@ -1,0 +1,30 @@
+{
+  "name": "@microfe/build",
+  "version": "1.0.0",
+  "description": "Shared build toolkit: builds micro app server/client bundles from a microfe.config.js and publishes the deploy manifest",
+  "private": true,
+  "type": "module",
+  "main": "index.mjs",
+  "types": "index.d.ts",
+  "bin": {
+    "microfe-build": "bin/microfe-build.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "shims",
+    "index.mjs",
+    "index.d.ts"
+  ],
+  "scripts": {
+    "typecheck": "microfe-tsc --noEmit index.d.ts",
+    "lint": "microfe-lint check ."
+  },
+  "dependencies": {
+    "esbuild": "catalog:build"
+  },
+  "devDependencies": {
+    "@microfe/biome": "workspace:*",
+    "@microfe/typescript": "workspace:*"
+  }
+}

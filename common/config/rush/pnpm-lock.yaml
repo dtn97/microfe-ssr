@@ -47,6 +47,9 @@ importers:
       '@microfe/biome':
         specifier: workspace:*
         version: link:../../toolings/biome
+      '@microfe/build':
+        specifier: workspace:*
+        version: link:../../toolings/build
       '@microfe/typescript':
         specifier: workspace:*
         version: link:../../toolings/typescript
@@ -56,9 +59,6 @@ importers:
       '@types/react-dom':
         specifier: catalog:react18
         version: 18.3.7(@types/react@18.3.31)
-      esbuild:
-        specifier: catalog:build
-        version: 0.25.12
 
   ../../apps/app-b:
     dependencies:
@@ -75,6 +75,9 @@ importers:
       '@microfe/biome':
         specifier: workspace:*
         version: link:../../toolings/biome
+      '@microfe/build':
+        specifier: workspace:*
+        version: link:../../toolings/build
       '@microfe/typescript':
         specifier: workspace:*
         version: link:../../toolings/typescript
@@ -84,9 +87,6 @@ importers:
       '@types/react-dom':
         specifier: catalog:react18
         version: 18.3.7(@types/react@18.3.31)
-      esbuild:
-        specifier: catalog:build
-        version: 0.25.12
 
   ../../apps/app-c:
     dependencies:
@@ -103,6 +103,9 @@ importers:
       '@microfe/biome':
         specifier: workspace:*
         version: link:../../toolings/biome
+      '@microfe/build':
+        specifier: workspace:*
+        version: link:../../toolings/build
       '@microfe/typescript':
         specifier: workspace:*
         version: link:../../toolings/typescript
@@ -112,9 +115,6 @@ importers:
       '@types/react-dom':
         specifier: catalog:react18
         version: 18.3.7(@types/react@18.3.31)
-      esbuild:
-        specifier: catalog:build
-        version: 0.25.12
 
   ../../host:
     dependencies:
@@ -158,6 +158,19 @@ importers:
       '@biomejs/biome':
         specifier: 2.4.16
         version: 2.4.16
+
+  ../../toolings/build:
+    dependencies:
+      esbuild:
+        specifier: catalog:build
+        version: 0.25.12
+    devDependencies:
+      '@microfe/biome':
+        specifier: workspace:*
+        version: link:../biome
+      '@microfe/typescript':
+        specifier: workspace:*
+        version: link:../typescript
 
   ../../toolings/typescript:
     dependencies:

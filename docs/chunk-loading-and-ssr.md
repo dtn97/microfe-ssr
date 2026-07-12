@@ -7,10 +7,12 @@ a request end to end through the actual code.
 
 ## The artifacts: what a "chunk" is here
 
-A micro app is **multi-entry**: every `src/entries/<module>.client.js` is an
-exposed module (app-b exposes `b1` and `b2`; app-a exposes just `main`). The
-two sides split differently on purpose
-([apps/app-b/build.mjs](../apps/app-b/build.mjs)):
+A micro app is **multi-entry**: its `microfe.config.js` declares an array of
+modules, each pairing a globally unique `moduleId` with a client entry
+(app-b exposes `app-b/b1` and `app-b/b2`; app-a exposes just `app-a/main`).
+All apps build through the shared `microfe-build` CLI from `@microfe/build`,
+and the two sides split differently on purpose
+([toolings/build/lib/build.mjs](../toolings/build/lib/build.mjs)):
 
 - **Client: full splitting.** All client entries build together with esbuild
   `splitting: true` — code shared between modules (app-b's `Panel`, the
@@ -280,8 +282,8 @@ tree. Hydration needs one extra piece of coordination: the SSR HTML for
 where the server put real content (a mismatch). That's what the manifest's
 `uses` field is for:
 
-1. app-b's `package.json` declares `microfe.modules.b2.uses: ["app-c/main"]`;
-   the build copies it into the manifest.
+1. app-b's `microfe.config.js` declares `uses: ["app-c/main"]` on the
+   `app-b/b2` module; the build copies it into the manifest.
 2. The host expands the route module's transitive `uses` into a **preload
    set**, emits a `<script type=module>` tag for each, and lists them in the
    bootstrap JSON.
@@ -305,7 +307,7 @@ options:
   this exact pattern with version checking bolted on.
 
 This POC's approach — alias shims baked in at build time
-([apps/app-b/shims/](../apps/app-b/shims/)) plus registration through
+([toolings/build/shims/](../toolings/build/shims/)) plus registration through
 `window.__MICROFE__` — is the zero-infrastructure version of the same idea:
 the "module system" for *cross-app* linking is a global registry, while
 *intra-app* linking (entries ↔ shared chunks) uses native ESM imports.

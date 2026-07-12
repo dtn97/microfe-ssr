@@ -72,6 +72,11 @@
       "tags": ["tooling"]
     },
     {
+      "packageName": "@microfe/build",
+      "projectFolder": "toolings/build",
+      "tags": ["tooling"]
+    },
+    {
       "packageName": "@microfe/typescript",
       "projectFolder": "toolings/typescript",
       "tags": ["tooling"]

@@ -16,14 +16,26 @@ interface MicroAppManifest {
   name: string
   version: string
   server: string
-  modules: Record<string, { client: string; uses?: string[] }>
+  modules: Array<{
+    /** Globally unique id the module is loaded by (e.g. "app-b/b1"). */
+    moduleId: string
+    /** Client entry path, relative to the app's artifact dir. */
+    client: string
+    /** Named export backing this module in the server bundle. */
+    serverExport: string
+    /** moduleIds this module embeds (preloaded before hydration). */
+    uses?: string[]
+  }>
 }
 
 /** A micro app resolved to its currently-deployed version. */
 export interface LoadedMicroApp {
   version: string
-  serverExports: Record<string, MicroAppComponent>
+  /** moduleId -> SSR component (the server bundle export for that module). */
+  components: Record<string, MicroAppComponent>
+  /** moduleId -> versioned client entry URL. */
   clientUrls: Record<string, string>
+  /** moduleId -> moduleIds it embeds (preloaded before hydration). */
   uses: Record<string, string[]>
 }
 
@@ -50,29 +62,27 @@ async function resolveApp(name: string): Promise<LoadedMicroApp> {
   const cached = loaded.get(name)
   if (cached?.version === manifest.version) return cached
 
-  // One server bundle per app; each exposed module is a named export. The
-  // ESM cache is keyed by URL, so a version-suffixed URL hot-loads the new
-  // bundle without a restart. Old versions stay in memory (can't be
-  // evicted) — production hosts recycle processes.
+  // One server bundle per app; the manifest says which named export backs
+  // each moduleId. The ESM cache is keyed by URL, so a version-suffixed URL
+  // hot-loads the new bundle without a restart. Old versions stay in memory
+  // (can't be evicted) — production hosts recycle processes.
   const serverUrl = pathToFileURL(path.join(dir, manifest.server)).href
   const serverExports: Record<string, MicroAppComponent> = await import(
     `${serverUrl}?v=${manifest.version}`
   )
 
+  const components = Object.fromEntries(
+    manifest.modules.map((m) => [m.moduleId, serverExports[m.serverExport]]),
+  )
   const clientUrls = Object.fromEntries(
-    Object.entries(manifest.modules).map(([m, { client }]) => [
-      m,
-      `/static/${name}/${client}?v=${manifest.version}`,
-    ]),
+    manifest.modules.map((m) => [m.moduleId, `/static/${name}/${m.client}?v=${manifest.version}`]),
   )
-  const uses = Object.fromEntries(
-    Object.entries(manifest.modules).map(([m, meta]) => [m, meta.uses ?? []]),
-  )
+  const uses = Object.fromEntries(manifest.modules.map((m) => [m.moduleId, m.uses ?? []]))
 
-  const entry: LoadedMicroApp = { version: manifest.version, serverExports, clientUrls, uses }
+  const entry: LoadedMicroApp = { version: manifest.version, components, clientUrls, uses }
   loaded.set(name, entry)
   console.log(
-    `[host] ${cached ? 'hot-loaded' : 'loaded'} ${name}@${manifest.version} (${Object.keys(clientUrls).join(', ')})`,
+    `[host] ${cached ? 'hot-loaded' : 'loaded'} ${name}@${manifest.version} (${Object.keys(components).join(', ')})`,
   )
   return entry
 }
@@ -84,10 +94,12 @@ export async function refreshMicroApps() {
 }
 
 setMicroAppProvider({
-  // id is "<app>/<module>", e.g. "app-b/b1" → named export of the app bundle
+  // moduleIds are globally unique, so the first app exposing the id wins.
   get: (id) => {
-    const [app, moduleName] = id.split('/')
-    return loaded.get(app)?.serverExports[moduleName]
+    for (const app of loaded.values()) {
+      if (id in app.components) return app.components[id]
+    }
+    return undefined
   },
   // SSR never lazy-loads: refreshMicroApps() runs before each render.
   load: () => Promise.resolve(),
