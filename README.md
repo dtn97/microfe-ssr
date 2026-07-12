@@ -12,7 +12,8 @@ A minimal proof of concept for **SSR + hydration + SPA routing across independen
 3. **Hydration** — the browser loads the host's **runtime SDK** (`window.__MICROFE__`) once; it hydrates the page inside a shared `BrowserRouter` as soon as the matched app's client bundle registers, using the exact props the server rendered with.
 4. **SPA navigation between micro apps (CSR)** — the home page's buttons (and the header nav) use React Router. On a location change, `getMicroAppComponent`'s client provider **lazy-loads that module's ES-module entry** and swaps it in — no full page reload (the page shows `Server-rendered at: never`). Navigating B1 → B2 fetches only `b2.client.js`; the shared chunk is already cached. A direct request to `/b1` is instead SSR'd by the host, so every route works both ways.
 5. **Shared runtime via SDK** — micro app client bundles alias `react`, `react/jsx-runtime`, and `react-router-dom` to the SDK's shared copies (see `apps/*/shims/`), so React + Router ship once (in the ~475 KB SDK) and all apps share one router context.
-6. **Dynamic updates, no host redeploy** — each micro app build publishes a `dist/manifest.json` whose `version` is a content hash of its artifacts. The host re-reads manifests per request and, when the version changes, hot-loads the new server bundle via `import(url + '?v=' + version)` (the ESM cache is keyed by URL). Client script URLs carry the same `?v=` for cache busting. Deploying a micro app is just `npm run build -w app-b` — the next request serves the new version.
+6. **Nested micro apps** — a micro app can embed another micro app the same way the host embeds pages: B2 renders app-c's widget via `getMicroAppComponent('app-c/main')`, imported from the host-provided `@microfe/sdk` (aliased to shims per environment, like React). The embedding module declares its dependency in `package.json` (`microfe.modules.b2.uses`), which lands in the manifest so the host preloads app-c's client entry before hydrating `/b2` — the nested SSR content hydrates without mismatch. On client-side navigation the dependency simply lazy-loads in sequence.
+7. **Dynamic updates, no host redeploy** — each micro app build publishes a `dist/manifest.json` whose `version` is a content hash of its artifacts. The host re-reads manifests per request and, when the version changes, hot-loads the new server bundle via `import(url + '?v=' + version)` (the ESM cache is keyed by URL). Client script URLs carry the same `?v=` for cache busting. Deploying a micro app is just `npm run build -w app-b` — the next request serves the new version.
 
 ## Layout
 
@@ -36,6 +37,8 @@ apps/app-b/            # multi-entry: exposes modules "b1" (/b1) and "b2" (/b2)
   src/components/SalesChart.jsx  # React.lazy inside B1 → own on-demand chunk
   src/server.js                  # single SSR bundle: named export per module
   src/entries/b1.client.js, b2.client.js
+apps/app-c/            # nested micro app: exposes "main", embedded by B2
+  src/pages/Widget.jsx
 scripts/dev.mjs        # npm run dev: all watchers + auto-restarting server
 ```
 

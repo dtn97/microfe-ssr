@@ -19,6 +19,7 @@ const tasks = [
   { name: 'host ', cmd: 'npm', args: ['run', 'dev', '-w', 'host'] },
   { name: 'app-a', cmd: 'npm', args: ['run', 'dev', '-w', 'app-a'] },
   { name: 'app-b', cmd: 'npm', args: ['run', 'dev', '-w', 'app-b'] },
+  { name: 'app-c', cmd: 'npm', args: ['run', 'dev', '-w', 'app-c'] },
   {
     name: 'serve',
     cmd: 'node',

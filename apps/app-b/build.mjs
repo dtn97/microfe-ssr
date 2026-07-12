@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 const watch = process.argv.includes('--watch')
-const { name } = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'))
+const pkg = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'))
+const { name } = pkg
 
 // Multi-entry (client side): every src/entries/<module>.client.js is an
 // exposed module. All client entries build together with `splitting`, so
@@ -29,6 +30,11 @@ const serverConfig = {
   packages: 'external',
   jsx: 'automatic',
   metafile: true,
+  // '@microfe/sdk' is host-provided (alias wins over packages:'external');
+  // the server shim reads the global the host sets before importing us.
+  alias: {
+    '@microfe/sdk': path.join(root, 'shims/microfe-sdk-server-shim.cjs'),
+  },
   logLevel: 'info',
 }
 
@@ -46,6 +52,7 @@ const clientConfig = {
   chunkNames: 'chunks/[name]-[hash]',
   metafile: true,
   alias: {
+    '@microfe/sdk': path.join(root, 'shims/microfe-sdk-client-shim.cjs'),
     'react/jsx-runtime': path.join(root, 'shims/jsx-runtime-shim.cjs'),
     'react-router-dom': path.join(root, 'shims/react-router-dom-shim.cjs'),
     react: path.join(root, 'shims/react-shim.cjs'),
@@ -79,11 +86,20 @@ async function publishManifest(serverMeta, clientMeta) {
   const version = hash.digest('hex').slice(0, 12)
 
   const client = entryOutputs(clientMeta)
+  // A module that embeds other micro apps declares them in package.json
+  // ("microfe.modules.<m>.uses") so the host can preload them before
+  // hydrating a page whose SSR output contains the nested app.
+  const usesOf = (m) => pkg.microfe?.modules?.[m]?.uses ?? []
   const manifest = {
     name,
     version,
     server: 'server/index.js', // the one server bundle (fixed outfile)
-    modules: Object.fromEntries(Object.keys(client).map((m) => [m, { client: client[m] }])),
+    modules: Object.fromEntries(
+      Object.keys(client).map((m) => [
+        m,
+        { client: client[m], ...(usesOf(m).length ? { uses: usesOf(m) } : {}) },
+      ]),
+    ),
   }
   await fs.writeFile(path.join(root, 'dist/manifest.json'), JSON.stringify(manifest, null, 2))
   console.log(`[${name}] published manifest version ${version} (modules: ${Object.keys(client).join(', ')})`)

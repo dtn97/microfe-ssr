@@ -12,7 +12,7 @@ import * as ReactDOMClient from 'react-dom/client'
 import * as jsxRuntime from 'react/jsx-runtime'
 import * as ReactRouterDOM from 'react-router-dom'
 import App from './app/App.jsx'
-import { setMicroAppProvider } from './app/runtime.js'
+import { getMicroAppComponent, setMicroAppProvider } from './app/runtime.js'
 
 const registry = new Map() // moduleId ("<app>/<module>") -> component
 const waiters = new Map() // moduleId -> { promise, resolve }
@@ -61,6 +61,10 @@ window.__MICROFE__ = {
   jsxRuntime,
   ReactRouterDOM,
 
+  // Also the client face of '@microfe/sdk' — lets one micro app embed
+  // another (B2 renders app-c/main) through the same provider.
+  getMicroAppComponent,
+
   /** Called by each micro app module's client entry with its moduleId. */
   register(moduleId, Component) {
     registry.set(moduleId, Component)
@@ -73,9 +77,10 @@ function boot() {
   const rootEl = document.getElementById('root')
   if (!rootEl) return
   bootstrap = JSON.parse(document.getElementById('microfe-bootstrap').textContent)
-  // The initial module's <script> is already in the page (right after this
-  // one); wait for it to register so the first render matches the SSR HTML.
-  whenRegistered(bootstrap.initialModule).then(() => {
+  // The preload set (route module + nested apps it embeds) is already in the
+  // page as <script type=module> tags; wait for ALL of them to register so
+  // the first render — including nested micro apps — matches the SSR HTML.
+  Promise.all(bootstrap.preload.map(whenRegistered)).then(() => {
     ReactDOMClient.hydrateRoot(
       rootEl,
       <ReactRouterDOM.BrowserRouter>

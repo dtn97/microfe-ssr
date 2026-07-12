@@ -253,6 +253,44 @@ send HTML + bootstrap JSON + scripts  ───►  paint SSR HTML (no JS yet)
                                                 SalesChart-<hash>.js ONLY
 ```
 
+## Nested micro apps
+
+A micro app can embed another micro app with the same primitive the host
+uses — `getMicroAppComponent` — imported from the host-provided
+`@microfe/sdk` (a virtual package, aliased at build time like React):
+
+```jsx
+// apps/app-b/src/pages/B2.jsx
+import { getMicroAppComponent } from '@microfe/sdk'
+const NestedC = getMicroAppComponent('app-c/main')
+// ... <NestedC /> inside B2's JSX
+```
+
+The shims differ per environment but point at the same provider:
+
+- client: `module.exports = window.__MICROFE__` (the SDK exposes
+  `getMicroAppComponent` alongside React)
+- server: `module.exports = globalThis.__MICROFE_SSR__` — set by the host's
+  registry *before* it imports any micro app server bundle
+
+SSR just works: one render pass walks host chrome → B2 → C, all one React
+tree. Hydration needs one extra piece of coordination: the SSR HTML for
+`/b2` *contains* C's markup, so C's client entry must be registered before
+`hydrateRoot` or the first client render would show a loading placeholder
+where the server put real content (a mismatch). That's what the manifest's
+`uses` field is for:
+
+1. app-b's `package.json` declares `microfe.modules.b2.uses: ["app-c/main"]`;
+   the build copies it into the manifest.
+2. The host expands the route module's transitive `uses` into a **preload
+   set**, emits a `<script type=module>` tag for each, and lists them in the
+   bootstrap JSON.
+3. The SDK's boot waits for ALL preload modules to register, then hydrates.
+
+On client-side navigation no coordination is needed: B2 lazy-loads, renders
+its `MicroApp(app-c/main)` wrapper, and the wrapper lazy-loads C — the
+loading placeholder is fine there because there's no server HTML to match.
+
 ## Why script-tag + global registration instead of `import()`?
 
 The entries are real ES modules now (that's what makes shared chunks work),

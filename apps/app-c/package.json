@@ -1,18 +1,11 @@
 {
-  "name": "app-b",
+  "name": "app-c",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
     "dev": "node build.mjs --watch"
-  },
-  "microfe": {
-    "modules": {
-      "b2": {
-        "uses": ["app-c/main"]
-      }
-    }
   },
   "dependencies": {
     "react": "^18.3.1",

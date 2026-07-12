@@ -71,7 +71,15 @@ const devReloadScript = isDev
   </script>`
   : ''
 
-function page({ html, bootstrap, initialModuleScript }) {
+function page({ html, bootstrap }) {
+  // The route's module plus everything it (transitively) embeds: their
+  // entries must load before hydration so the first render matches the SSR.
+  const preloadScripts = bootstrap.preload
+    .map(
+      (id) =>
+        `  <script type="module" src="${bootstrap.modules[id]}" data-microfe-entry="${id}"></script>`,
+    )
+    .join('\n')
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -95,7 +103,7 @@ function page({ html, bootstrap, initialModuleScript }) {
   <div id="root">${html}</div>
   <script type="application/json" id="microfe-bootstrap">${escapeJson(bootstrap)}</script>
   <script src="/sdk/microfe-sdk.js"></script>
-  <script type="module" src="${initialModuleScript.src}" data-microfe-entry="${initialModuleScript.moduleId}"></script>${devReloadScript}
+${preloadScripts}${devReloadScript}
 </body>
 </html>`
 }
@@ -114,9 +122,21 @@ for (const route of routes) {
     try {
       const entries = await refreshMicroApps()
 
+      // The route's module + transitive `uses` dependencies (nested apps).
+      const preload = []
+      const queue = [route.moduleId]
+      while (queue.length) {
+        const id = queue.shift()
+        if (preload.includes(id)) continue
+        preload.push(id)
+        const [app, moduleName] = id.split('/')
+        queue.push(...(entries.get(app)?.uses[moduleName] ?? []))
+      }
+
       const bootstrap = {
         initialPath: req.path,
         initialModule: route.moduleId,
+        preload,
         pageProps: { renderedAt: new Date().toLocaleTimeString() },
         versions: appNames.map((n) => `${n}@${entries.get(n).version}`),
         // moduleId -> client entry URL; lets the SDK lazy-load any exposed
@@ -138,13 +158,7 @@ for (const route of routes) {
         </StaticRouter>,
       )
 
-      res.send(
-        page({
-          html,
-          bootstrap,
-          initialModuleScript: { moduleId: route.moduleId, src: bootstrap.modules[route.moduleId] },
-        }),
-      )
+      res.send(page({ html, bootstrap }))
     } catch (err) {
       next(err)
     }

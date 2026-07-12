@@ -9,7 +9,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
-import { setMicroAppProvider } from './app/runtime.js'
+import { getMicroAppComponent, setMicroAppProvider } from './app/runtime.js'
 
 // import.meta.url is the *bundled* location: host/dist/server/server.js
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -19,6 +19,7 @@ const rootDir = path.resolve(__dirname, '../../..')
 export const artifactDirs = {
   'app-a': path.join(rootDir, 'apps/app-a/dist'),
   'app-b': path.join(rootDir, 'apps/app-b/dist'),
+  'app-c': path.join(rootDir, 'apps/app-c/dist'),
 }
 export const appNames = Object.keys(artifactDirs)
 
@@ -44,8 +45,11 @@ async function resolveApp(name) {
       `/static/${name}/${client}?v=${manifest.version}`,
     ]),
   )
+  const uses = Object.fromEntries(
+    Object.entries(manifest.modules).map(([m, meta]) => [m, meta.uses ?? []]),
+  )
 
-  const entry = { version: manifest.version, serverExports, clientUrls }
+  const entry = { version: manifest.version, serverExports, clientUrls, uses }
   loaded.set(name, entry)
   console.log(
     `[host] ${cached ? 'hot-loaded' : 'loaded'} ${name}@${manifest.version} (${Object.keys(clientUrls).join(', ')})`,
@@ -68,3 +72,8 @@ setMicroAppProvider({
   // SSR never lazy-loads: refreshMicroApps() runs before each render.
   load: () => Promise.resolve(),
 })
+
+// Server-side face of '@microfe/sdk': micro app server bundles alias the
+// package to a shim reading this global, so a micro app can embed another
+// micro app (B2 renders app-c/main) through the same provider.
+globalThis.__MICROFE_SSR__ = { getMicroAppComponent }
